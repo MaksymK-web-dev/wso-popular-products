@@ -3,7 +3,7 @@
  * Plugin Name:       Popular Products Block
  * Plugin URI:        https://github.com/MaksymK-web-dev/wso-popular-products
  * Description:       A Gutenberg block that lists best-selling products, loaded from a REST endpoint without a page reload.
- * Version:           1.0.1
+ * Version:           1.0.3
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Author:            Maksym Krokhal

@@ -6,6 +6,27 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.3] — 2026-11-17
+
+### Fixed
+
+- Ordering was `total_sales DESC` only. On a store with no sales yet every product ties at
+  zero, so the order was arbitrary and a newly added product could fall outside the limit.
+  Now `total_sales DESC, date DESC`: sales still outrank recency once they exist, and
+  otherwise the newest product appears first.
+- Two blocks on one page shared one product list, because state lived in the page-global
+  store. State moved into each block's `data-wp-context`; the instances are independent.
+- Per-item directives read `context.showImage`, which is undefined inside `data-wp-each`
+  (the item context shadows the block context), so every product image was hidden. Whether
+  the `<img>` exists is now decided in PHP; per-item directives only read `context.item`.
+
+## [1.0.2] — 2026-11-17
+
+### Changed
+
+- The README now states precisely what the REST API is doing here, since the data comes
+  from the same site.
+
 ## [1.0.1] — 2026-11-17
 
 ### Fixed
@@ -39,6 +60,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Prices formatted with `wc_price()` and HTML-decoded once, so they render as text rather
   than `&nbsp;` entities.
 
-[Unreleased]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/MaksymK-web-dev/wso-popular-products/releases/tag/v1.0.0

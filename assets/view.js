@@ -5,6 +5,10 @@
  * The block's markup is server-rendered once; everything after that — the first load and
  * every refresh — goes through the REST endpoint and patches the existing DOM. No page
  * reload, no full block re-render.
+ *
+ * State lives in the block's context, not in the store. A store is page-global: two
+ * instances of this block sharing `state.products` meant pressing Refresh in one updated
+ * both. Context is per element instance, which is what the UI implies.
  */
 
 import { store, getContext } from '@wordpress/interactivity';
@@ -26,16 +30,44 @@ const buildUrl = ( context ) => {
 };
 
 /**
- * Fetches products and updates the shared state.
+ * Derives the display strings and flags the markup binds to.
+ *
+ * Context holds plain data — no getters — so the derived values are written here whenever
+ * the underlying state changes.
  *
  * @param {Object} context Block context.
- * @return {Promise<void>} Resolves when the state has been updated.
+ */
+const syncDerived = ( context ) => {
+	if ( context.loading ) {
+		context.statusText = 'Loading…';
+	} else if ( context.error ) {
+		context.statusText = 'Could not load products.';
+	} else if ( context.loaded ) {
+		const count = context.products.length;
+		context.statusText = count === 1 ? '1 product' : `${ count } products`;
+	} else {
+		context.statusText = '';
+	}
+
+	context.isEmpty =
+		context.loaded &&
+		! context.loading &&
+		'' === context.error &&
+		0 === context.products.length;
+
+	context.hasError = '' !== context.error;
+};
+
+/**
+ * Fetches products and writes them into the given context.
+ *
+ * @param {Object} context Block context.
+ * @return {Promise<void>} Resolves when the context has been updated.
  */
 const loadProducts = async ( context ) => {
-	const { state } = store( 'wso/popular-products' );
-
-	state.loading = true;
-	state.error = '';
+	context.loading = true;
+	context.error = '';
+	syncDerived( context );
 
 	try {
 		const response = await fetch( buildUrl( context ).toString(), {
@@ -48,79 +80,23 @@ const loadProducts = async ( context ) => {
 
 		const products = await response.json();
 
-		state.products = Array.isArray( products ) ? products : [];
-		state.loaded = true;
+		context.products = Array.isArray( products ) ? products : [];
+		context.loaded = true;
 	} catch ( error ) {
-		state.error =
+		context.error =
 			error && error.message
 				? error.message
 				: 'Could not load products.';
 	} finally {
-		state.loading = false;
+		context.loading = false;
+		syncDerived( context );
 	}
 };
 
-const { state, actions } = store( 'wso/popular-products', {
-	state: {
-		/**
-		 * Products as returned by the REST endpoint.
-		 *
-		 * @type {Array<Object>}
-		 */
-		products: [],
-		loading: false,
-		loaded: false,
-		error: '',
-
-		/**
-		 * Status line shown next to the refresh button.
-		 *
-		 * @return {string} Human-readable status.
-		 */
-		get statusText() {
-			if ( state.loading ) {
-				return 'Loading…';
-			}
-
-			if ( state.error ) {
-				return 'Could not load products.';
-			}
-
-			if ( state.loaded ) {
-				const count = state.products.length;
-				return count === 1 ? '1 product' : `${ count } products`;
-			}
-
-			return '';
-		},
-
-		/**
-		 * Whether the request finished and returned nothing.
-		 *
-		 * @return {boolean} True when the empty message should be visible.
-		 */
-		get isEmpty() {
-			return (
-				state.loaded &&
-				! state.loading &&
-				'' === state.error &&
-				0 === state.products.length
-			);
-		},
-
-		/**
-		 * Whether the error line should be visible.
-		 *
-		 * @return {boolean} True when there is an error to show.
-		 */
-		get hasError() {
-			return '' !== state.error;
-		},
-	},
-
+const { actions } = store( 'wso/popular-products', {
 	actions: {
 		/**
-		 * Runs on mount: fetch the list.
+		 * Runs on mount: fetch the list for this block instance.
 		 *
 		 * A generator so the Interactivity API can await the promise and keep the
 		 * directive's error handling intact.
@@ -132,17 +108,18 @@ const { state, actions } = store( 'wso/popular-products', {
 		},
 
 		/**
-		 * Clears the list and fetches it again.
+		 * Clears this instance's list and fetches it again.
 		 *
 		 * @return {Generator} Action generator.
 		 */
 		*reload() {
-			state.products = [];
-			state.loaded = false;
-			yield loadProducts( getContext() );
+			const context = getContext();
+			context.products = [];
+			context.loaded = false;
+			yield loadProducts( context );
 		},
 	},
 } );
 
-// Keeps the module's exports referenced for tooling that tree-shakes aggressively.
-export { state, actions };
+// Keeps the module's export referenced for tooling that tree-shakes aggressively.
+export { actions };

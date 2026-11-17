@@ -29,17 +29,38 @@ flowchart LR
 1. **`block.json` is the source of truth.** Scripts, styles, attributes, the view module
    and the render file are all declared there; PHP registers the block in four lines.
 2. **The server renders a shell.** A heading, a toolbar and an empty `<ul>` with a
-   `<template data-wp-each="state.products">`. Rendering a real shell (rather than nothing)
-   keeps the block visible in the editor preview and gives the Interactivity API a
+   `<template data-wp-each="context.products">`. Rendering a real shell (rather than
+   nothing) keeps the block visible in the editor preview and gives the Interactivity API a
    hydration target.
 3. **`view.js` fetches and patches.** On mount it calls the plugin's REST endpoint and
-   writes the result to Interactivity store state; `data-wp-each` builds the list,
+   writes the result into the block's own context; `data-wp-each` builds the list,
    `data-wp-text` fills the fields, `data-wp-bind--href` sets the links. Refresh is the same
    action again — no navigation, no block re-render.
 4. **A REST proxy sits in front of WooCommerce.** The block could call WooCommerce's Store
    API directly; this endpoint exists because the response shape is ours, the result is
    cached in a transient for five minutes, and the route degrades to an empty list instead
    of a fatal error when WooCommerce's blocks package is unavailable.
+
+### Where the REST API is, exactly
+
+Fair question, because the data comes from the same site the block runs on. The block does
+REST in both directions:
+
+- **It provides an endpoint** — `register_rest_route( 'wso-popular-products/v1', '/products' )`
+  in `ProductsController`, with a permission callback, argument validation and a JSON
+  contract.
+- **It consumes one** — `fetch( rest_url( 'wso-popular-products/v1/products' ) )` from the
+  browser, which is an HTTP round trip against `/wp-json/`, independent of the page render.
+
+What it does *not* do is call a third-party service: the products genuinely live in this
+WooCommerce database. Using REST here buys a few real things — the payload survives a page
+cache, the browser gets a stable JSON contract instead of rendered HTML, and the same route
+serves both the editor preview and the front end.
+
+If the demo needs to prove *external* integration, the natural addition is a second source
+fetched the same way: NBU currency rates (`https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json`)
+is public, needs no key, and would exercise the same client code against a foreign host —
+including CORS, which the same-site version never hits.
 
 ## Screenshots
 
@@ -210,6 +231,22 @@ Kept in the README because they are the useful part:
    previewed" while the front end kept working. The earlier test missed it because the
    `useEffect` stub never ran the effect body; it now does, and there is a test that invokes
    every component in the tree.
+6. **Two blocks on one page shared one list.** State lived in the store
+   (`state.products`), and a store is page-global, so pressing Refresh in the first block
+   also refreshed the second. State now lives in each block's `data-wp-context`, which is
+   per element instance. Verified on a page with two instances: they report 2 and 4
+   products, and each keeps its own list.
+7. **A newly added product never appeared.** Ordering was `total_sales DESC` alone. On a
+   store where nothing has sold yet every product has `total_sales = 0`, so the order was
+   whatever the database returned and a fresh product could land past the limit. The
+   order is now `total_sales DESC, date DESC` — sales still outrank recency once they exist
+   (checked by temporarily setting sales on the oldest product), and otherwise the newest
+   product wins instead of losing a tie to chance.
+8. **Every image was hidden.** The per-item directive read
+   `!context.item.hasImage || !context.showImage`. Inside `data-wp-each` the item context
+   shadows the block context, so `context.showImage` was `undefined`, `!undefined` was true,
+   and the image was hidden even when the product had one. Whether the element exists is now
+   decided in PHP (`$showImage`), and the directive only reads `context.item`.
 
 ## License
 

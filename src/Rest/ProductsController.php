@@ -91,11 +91,16 @@ final class ProductsController implements HookRegistrar {
 			array(
 				'status'   => 'publish',
 				'limit'    => $limit,
-				// WooCommerce keeps lifetime sales in this meta key; ordering by popularity
-				// is not an exposed argument of wc_get_products().
-				'orderby'  => 'meta_value_num',
+				// WooCommerce keeps lifetime sales in this meta key; wc_get_products() has no
+				// "popularity" argument (that lives in WC_Query::order_by_popularity_post_clauses).
+				// The date tie-break matters: on a store where nothing has sold yet every product
+				// has total_sales = 0, and without it the order is whatever the database returns —
+				// a newly added product could land anywhere, including outside the limit.
+				'orderby'  => array(
+					'meta_value_num' => 'DESC',
+					'date'           => 'DESC',
+				),
 				'meta_key' => 'total_sales', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-				'order'    => 'DESC',
 			)
 		);
 

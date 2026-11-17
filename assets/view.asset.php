@@ -14,5 +14,5 @@ declare( strict_types = 1 );
 
 return array(
 	'dependencies' => array( '@wordpress/interactivity' ),
-	'version'      => '1.0.1',
+	'version'      => '1.0.3',
 );
