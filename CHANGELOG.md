@@ -6,6 +6,25 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.4] — 2026-11-17
+
+### Changed
+
+- House coding rules applied across the plugin. No short PHP tags, no eval, no die/
+  exit, no short-circuit control flow, no debug helpers, no weak hashes, no variable
+  variables, no extract().
+- ender.php: every decision now happens before the first ?>. The optional heading,
+  image and price are built as escaped strings at the top; the markup is seven echo
+  statements and no branches.
+- Block attributes are sanitized and range-checked once at the top
+  (sanitize_text_field, limit clamped after an is_numeric check) instead of being
+  cast inline in the template.
+
+### Added
+
+- 	ests/Unit/CodingRulesTest.php — enforces the rules above, including an assertion that
+  the template branches nowhere after the first ?>. Verified by introducing violations
+  and watching the test fail.
 ## [1.0.3] — 2026-11-17
 
 ### Fixed
@@ -60,7 +79,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Prices formatted with `wc_price()` and HTML-decoded once, so they render as text rather
   than `&nbsp;` entities.
 
-[Unreleased]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.0...v1.0.1
