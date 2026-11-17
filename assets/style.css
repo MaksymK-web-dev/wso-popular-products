@@ -1,0 +1,113 @@
+/**
+ * Front-end and shared styles.
+ *
+ * Plain CSS on purpose: one block, no preprocessor step, and custom properties so the
+ * block inherits the theme's palette instead of hard-coding colours.
+ */
+
+.wso-pp {
+	--wso-pp-gap: 0.75rem;
+	--wso-pp-radius: 8px;
+	--wso-pp-border: color-mix(in srgb, currentColor 18%, transparent);
+	--wso-pp-muted: color-mix(in srgb, currentColor 62%, transparent);
+}
+
+.wso-pp__heading {
+	margin: 0 0 0.5rem;
+	font-size: 1.05em;
+}
+
+.wso-pp__toolbar {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin-bottom: 0.75rem;
+	font-size: 0.8em;
+	color: var(--wso-pp-muted);
+}
+
+.wso-pp__refresh {
+	font: inherit;
+	color: inherit;
+	background: transparent;
+	border: 1px solid var(--wso-pp-border);
+	border-radius: 999px;
+	padding: 0.25rem 0.75rem;
+	cursor: pointer;
+}
+
+.wso-pp__refresh:hover:not(:disabled) {
+	border-color: currentColor;
+}
+
+.wso-pp__refresh:disabled {
+	opacity: 0.5;
+	cursor: progress;
+}
+
+.wso-pp__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: var(--wso-pp-gap);
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	transition: opacity 150ms ease;
+}
+
+.wso-pp__list.is-loading {
+	opacity: 0.45;
+}
+
+.wso-pp__item {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	min-width: 0;
+	overflow: hidden;
+	border: 1px solid var(--wso-pp-border);
+	border-radius: var(--wso-pp-radius);
+	padding: 0.6rem;
+}
+
+.wso-pp__link {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	text-decoration: none;
+	color: inherit;
+}
+
+.wso-pp__image {
+	width: 100%;
+	aspect-ratio: 4 / 3;
+	object-fit: cover;
+	border-radius: calc(var(--wso-pp-radius) - 3px);
+	background: var(--wso-pp-border);
+}
+
+.wso-pp__name {
+	font-weight: 600;
+	line-height: 1.3;
+	overflow-wrap: anywhere;
+}
+
+.wso-pp__price {
+	font-size: 0.9em;
+	color: var(--wso-pp-muted);
+	overflow-wrap: anywhere;
+}
+
+.wso-pp__empty,
+.wso-pp__error {
+	margin: 0.5rem 0 0;
+	font-size: 0.85em;
+}
+
+.wso-pp__error {
+	color: #b32d2e;
+}
+
+[hidden] {
+	display: none !important;
+}
