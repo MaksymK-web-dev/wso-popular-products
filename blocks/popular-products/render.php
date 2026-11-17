@@ -47,20 +47,53 @@ $wso_pp_limit = isset( $attributes['limit'] ) && is_numeric( $attributes['limit'
 $wso_pp_show_price = ! isset( $attributes['showPrice'] ) || (bool) $attributes['showPrice'];
 $wso_pp_show_image = ! isset( $attributes['showImage'] ) || (bool) $attributes['showImage'];
 
+// The conversion toggle is meaningless without a price, so it is gated on showPrice.
+$wso_pp_allow_convert = $wso_pp_show_price
+	&& ( isset( $attributes['showCurrencyToggle'] ) && (bool) $attributes['showCurrencyToggle'] );
+
+$wso_pp_convert_to = isset( $attributes['convertTo'] ) && is_scalar( $attributes['convertTo'] )
+	? \WSO\PopularProducts\Rates\RateProvider::normalizeCode( (string) $attributes['convertTo'] )
+	: '';
+
+if ( ! in_array( $wso_pp_convert_to, \WSO\PopularProducts\Rates\RateProvider::COMMON_CODES, true ) ) {
+	$wso_pp_allow_convert = false;
+	$wso_pp_convert_to    = '';
+}
+
 // ─── Derived values ────────────────────────────────────────────────────
 
 $wso_pp_context = array(
-	'endpoint'   => esc_url_raw( rest_url( 'wso-popular-products/v1/products' ) ),
-	'limit'      => $wso_pp_limit,
-	'showPrice'  => $wso_pp_show_price,
-	'showImage'  => $wso_pp_show_image,
-	'products'   => array(),
-	'loading'    => false,
-	'loaded'     => false,
-	'error'      => '',
-	'statusText' => '',
-	'isEmpty'    => false,
-	'hasError'   => false,
+	'endpoint'      => esc_url_raw( rest_url( 'wso-popular-products/v1/products' ) ),
+	'ratesEndpoint' => esc_url_raw( rest_url( 'wso-popular-products/v1/rates' ) ),
+	'limit'         => $wso_pp_limit,
+	'showPrice'     => $wso_pp_show_price,
+	'showImage'     => $wso_pp_show_image,
+	'allowConvert'  => $wso_pp_allow_convert,
+	'convertTo'     => $wso_pp_convert_to,
+	'rate'          => 0,
+	'rateAvailable' => false,
+	'showConverted' => false,
+	'toggleLabel'   => '',
+	'convertHint'   => '',
+	'products'      => array(),
+	'loading'       => false,
+	'loaded'        => false,
+	'error'         => '',
+	'statusText'    => '',
+	'isEmpty'       => false,
+	'hasError'      => false,
+	// Labels travel from PHP so the strings stay inside the plugin's text domain
+	// instead of being duplicated as literals in a JavaScript module.
+	'labels'        => array(
+		'toConverted'     => sprintf(
+			/* translators: %s: currency code, e.g. USD. */
+			esc_html__( 'Show in %s', 'wso-popular-products' ),
+			$wso_pp_convert_to
+		),
+		'toBase'          => esc_html__( 'Show in UAH', 'wso-popular-products' ),
+		'converted'       => esc_html__( 'Converted at the NBU rate', 'wso-popular-products' ),
+		'rateUnavailable' => esc_html__( 'Exchange rate unavailable', 'wso-popular-products' ),
+	),
 );
 
 $wso_pp_wrapper_attributes = (string) get_block_wrapper_attributes( array( 'class' => 'wso-pp' ) );
@@ -78,7 +111,17 @@ $wso_pp_image_markup = $wso_pp_show_image
 	: '';
 
 $wso_pp_price_markup = $wso_pp_show_price
-	? '<span class="wso-pp__price" data-wp-text="context.item.price"></span>'
+	? '<span class="wso-pp__price" data-wp-text="context.item.priceText"></span>'
+	: '';
+
+// The conversion button lives in the toolbar rather than on each card: it flips the whole
+// block, and a per-card button would imply per-card state that does not exist.
+$wso_pp_toggle_markup = $wso_pp_allow_convert
+	? '<button type="button" class="wso-pp__convert"'
+		. ' data-wp-on--click="actions.toggleCurrency"'
+		. ' data-wp-bind--disabled="!context.rateAvailable"'
+		. ' data-wp-bind--title="context.convertHint"'
+		. ' data-wp-text="context.toggleLabel"></button>'
 	: '';
 
 $wso_pp_refresh_label = esc_html__( 'Refresh', 'wso-popular-products' );
@@ -102,6 +145,7 @@ $wso_pp_empty_label   = esc_html__( 'No products found.', 'wso-popular-products'
 			<?php echo $wso_pp_refresh_label; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
 		</button>
 		<span class="wso-pp__status" data-wp-text="context.statusText"></span>
+		<?php echo $wso_pp_toggle_markup; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static markup built above. ?>
 	</div>
 
 	<ul class="wso-pp__list" data-wp-class--is-loading="context.loading">

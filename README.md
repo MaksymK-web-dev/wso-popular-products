@@ -1,18 +1,20 @@
-# Popular Products Block
+# Popular Products & NBU Rates
 
 [![CI](https://github.com/MaksymK-web-dev/wso-popular-products/actions/workflows/ci.yml/badge.svg)](https://github.com/MaksymK-web-dev/wso-popular-products/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/php-8.1%2B-777bb4.svg)](composer.json)
-[![WordPress](https://img.shields.io/badge/wordpress-6.5%2B-21759b.svg)](block.json)
+[![WordPress](https://img.shields.io/badge/wordpress-6.5%2B-21759b.svg)](blocks/popular-products/block.json)
 
-A Gutenberg block that lists a store's best-selling WooCommerce products. The list is
-fetched from a REST endpoint in the browser and rendered into the existing markup — the
-page never reloads, and the block can refresh itself in place.
+Two Gutenberg blocks for a WooCommerce storefront, both registered from `block.json`, built
+on the Interactivity API, and shipped with no build step:
 
-Registered entirely from `block.json`, built on the Interactivity API, and shipped with no
-build step.
+- **Popular Products** — the store's best-selling products, fetched in the browser and
+  rendered into existing markup. Optionally lets a shopper switch every price to USD, EUR
+  or PLN at the official NBU rate.
+- **NBU Exchange Rates** — today's hryvnia rates from the National Bank of Ukraine, pulled
+  from an external API through a cached server-side proxy.
 
-![The block on the front end](docs/screenshots/frontend.png)
+![The currency block and converted prices on the front end](docs/screenshots/currency.png)
 
 ## How it works
 
@@ -52,15 +54,30 @@ REST in both directions:
 - **It consumes one** — `fetch( rest_url( 'wso-popular-products/v1/products' ) )` from the
   browser, which is an HTTP round trip against `/wp-json/`, independent of the page render.
 
-What it does *not* do is call a third-party service: the products genuinely live in this
-WooCommerce database. Using REST here buys a few real things — the payload survives a page
-cache, the browser gets a stable JSON contract instead of rendered HTML, and the same route
-serves both the editor preview and the front end.
+What it does *not* do is call a third-party service for products: those genuinely live in
+this WooCommerce database. Using REST here buys a few real things — the payload survives a
+page cache, the browser gets a stable JSON contract instead of rendered HTML, and the same
+route serves both the editor preview and the front end.
 
-If the demo needs to prove *external* integration, the natural addition is a second source
-fetched the same way: NBU currency rates (`https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json`)
-is public, needs no key, and would exercise the same client code against a foreign host —
-including CORS, which the same-site version never hits.
+### The external API, and why it is proxied
+
+The rates block is the other direction: it reads
+`https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json`, which returns about 5 KB
+of JSON for ~40 currencies and sends `Access-Control-Allow-Origin: *` — a direct browser
+fetch would work.
+
+It still goes through `RatesController` → `RateProvider` on the server, for three reasons:
+
+1. **One cache instead of one request per visitor.** The answer is stored in a transient for
+   six hours; the NBU publishes once per working day.
+2. **The page survives an outage.** The last successful answer is kept separately (as an
+   option with autoload off). If the bank's API is down, the block shows yesterday's rates
+   with a note instead of an error.
+3. **The response shape is ours.** NBU's field names (`r030`, `txt`, `cc`, `rate`) never
+   reach the JavaScript, so a change on their side is one PHP edit.
+
+The cost is one extra hop per cache period. `?codes=USD,EUR` narrows the payload to what a
+block displays, and invalid codes are dropped rather than rejected.
 
 ## Screenshots
 
@@ -93,14 +110,25 @@ usable straight from the clone.
 
 ## Configuration
 
-The block has four attributes, all exposed in the inspector:
+**Popular Products** exposes six attributes in the inspector:
 
 - **Heading** — text above the list; leave empty to hide it.
 - **Number of products** — 1–12, default 3.
 - **Show price** — default on.
 - **Show image** — default on.
+- **Let shoppers show prices in another currency** — adds a toggle button; default off.
+- **Convert to** — USD, EUR or PLN; only shown when the toggle is enabled.
 
-## The endpoint
+**NBU Exchange Rates** exposes three:
+
+- **Heading** — default “Exchange rates”.
+- **Currency codes** — comma-separated ISO codes, default `USD,EUR,PLN`; invalid codes are
+  dropped and duplicates collapsed.
+- **Show the date the rates were published** — default on.
+
+## The endpoints
+
+### Products
 
 ```
 GET /wp-json/wso-popular-products/v1/products?limit=3
@@ -113,19 +141,44 @@ GET /wp-json/wso-popular-products/v1/products?limit=3
     "name": "Smart Learning Tablet",
     "permalink": "https://example.com/?product=smart-learning-tablet",
     "price": "129,00 ₴",
+    "priceValue": 129,
+    "currency": "UAH",
     "image": "https://example.com/wp-content/uploads/2026/11/tablet-300x300.jpg",
     "hasImage": true
   }
 ]
 ```
 
-- `limit` is validated and clamped to 1–12; anything else is rejected by the route's
-  `validate_callback`.
-- Ordering uses `total_sales` meta — WooCommerce keeps lifetime sales there, and
-  `wc_get_products()` has no "popularity" argument.
-- Results are cached per limit for five minutes; delete the `wso_pp_products_*` transients
-  to force a refresh.
-- The route is public because it serves the same catalogue the storefront already shows.
+- `price` is for display; `priceValue` is for arithmetic. Sending both means the browser
+  never has to parse `"129,00 ₴"` back into a number.
+- `limit` is validated and clamped to 1–12.
+- Ordering is `total_sales DESC, date DESC` — sales first, recency as the tie-break, so a
+  newly added product appears on a store that has not sold anything yet.
+- Results are cached per limit for five minutes.
+
+### Rates
+
+```
+GET /wp-json/wso-popular-products/v1/rates?codes=USD,EUR,PLN
+```
+
+```json
+{
+  "ok": true,
+  "base": "UAH",
+  "date": "18.11.2026",
+  "fetchedAt": 1794945634,
+  "stale": false,
+  "error": "",
+  "rates": {
+    "USD": { "code": "USD", "name": "Долар США", "rate": 45.3436 }
+  }
+}
+```
+
+- `ok: false` carries a diagnostic in `error`; the block shows it rather than an empty list.
+- `stale: true` means the NBU API was unreachable and a cached answer is being served.
+- `codes` is optional; without it the full table is returned. Maximum 12 codes per request.
 
 ## Why no build step
 
@@ -134,61 +187,78 @@ Most blocks assume `@wordpress/scripts`. This one does not, deliberately:
 - the plugin has to work when someone clones it and copies the folder into a WordPress
   install — no toolchain, no `node_modules`, no artifact drift;
 - the only thing a review needs is readable source;
-- the trade-off is paid in two places, both documented: `assets/view.asset.php` is hand
-  written, and the editor's attribute list mirrors `block.json`.
+- the trade-off is paid in two places, both documented: `view.asset.php` is hand written,
+  and the editor's attribute list mirrors `block.json`.
 
 `block.json` is also where the Interactivity API is wired: `viewScriptModule` tells
-WordPress to load `assets/view.js` as a script module and to emit the import map entry for
+WordPress to load `view.js` as a script module and to emit the import map entry for
 `@wordpress/interactivity`.
 
 ## Repository layout
 
 ```
-block.json                 block metadata: script, style, attributes, render
-render.php                 server-rendered shell with Interactivity directives
-wso-popular-products.php  plugin header + bootstrap
+blocks/
+  popular-products/        block.json, render.php, edit.js, view.js, CSS, asset files
+  nbu-rates/               same shape, independent block
+wso-popular-products.php   plugin header + bootstrap
 autoload.php               PSR-4 loader for WSO\PopularProducts
 src/
   Plugin.php               composition root
-  Block/BlockRegistrar.php register_block_type from block.json
-  Rest/ProductsController.php  REST route, cache, response shape
+  Block/BlockRegistrar.php registers every block in an explicit list
   Contract/HookRegistrar.php   hook-owning service
-assets/
-  edit.js                  editor UI + live preview (no JSX)
-  edit.asset.php           editor script dependencies (hand-written)
-  view.js                  Interactivity API store and actions
-  view.asset.php           script-module dependencies (hand-written)
-  style.css, editor.css
-tests/Unit/BlockMetadataTest.php
-tests/js/editor-registration.test.mjs
+  Rest/ProductsController.php  products route, cache, response shape
+  Rates/RateProvider.php       NBU fetch, normalization, cache, stale fallback
+  Rates/RatesController.php    rates route
+  Support/Logger.php           WooCommerce log writer
+tools/verify-toggle.mjs    end-to-end click test over the Chrome DevTools Protocol
+tests/Unit/                metadata contract, coding rules, provider parsing
+tests/js/                  editor registration, both blocks
 docs/screenshots/
 ```
 
 ## Verification status
 
-Verified on WordPress 7.1.4 + WooCommerce 11.3.0 + PHP 8.4, theme Twenty Twenty-Five:
+Verified on WordPress 7.1.4 + WooCommerce 11.3.0 + PHP 8.4, theme Twenty Twenty-Five.
 
-- the block registers and appears with its render callback and view module
-  (`WP_Block_Type_Registry`, checked from PHP);
-- the rendered page contains the block shell and the `@wordpress/interactivity` import map
-  entry, and loads `assets/view.js` as a module;
-- **the data is fetched client-side, proven by comparison**: the server HTML contains no
-  product names; the DOM after the module runs contains all three products with prices
-  formatted as `129,00 ₴` (headless Chrome, DOM dump and screenshot);
-- the route returns the expected JSON and clamps `limit`;
-- unit tests cover the metadata contract — file references resolve, the view module
-  declares its Interactivity dependency, attribute defaults, `supports.html` disabled;
-- the editor script registers the block when `wp.*` is available — asserted by
-  `tests/js/editor-registration.test.mjs`, which executes `edit.js` against stubbed
-  globals and checks the registered name, the attributes and that `save()` is empty.
+**Structure and contracts**
 
-Not verified:
+- both blocks register with a render callback and a view module (`WP_Block_Type_Registry`);
+- the rendered page loads `view.js` as a module and emits the `@wordpress/interactivity`
+  import map entry;
+- 24 PHP tests and 12 JS tests pass, plus phpcs with WordPress standards;
+- metadata tests run per block, driven by the same list `BlockRegistrar` registers — a
+  block that exists on disk but is not registered cannot pass unnoticed.
 
-- the editor canvas has not been exercised in a browser here — the screenshots come from
-  the running site's front end; the editor screenshot is captured manually;
-- no test covers the REST controller's behaviour against real products (it needs
-  WooCommerce loaded);
-- no accessibility audit beyond native `<ul>`/`<a>`/`<button>` semantics.
+**Behaviour, proven rather than assumed**
+
+- **Data is fetched client-side**: the server HTML contains no product names; the DOM after
+  the module runs contains all three products. Same for rates.
+- **The currency toggle works**: `tools/verify-toggle.mjs` drives headless Chrome over CDP,
+  clicks the button and reads the prices.
+
+  ```
+  label before : Show in USD
+  prices before: 22,00 ₴ | 69,00 ₴ | 499,00 ₴
+  label after  : Show in UAH
+  prices after : $0.49 | $1.52 | $11.00
+  prices back  : 22,00 ₴ | 69,00 ₴ | 499,00 ₴
+  ```
+
+  The arithmetic checks out: 22 / 45.3436 = 0.485 → $0.49.
+- **Ordering tie-break**: with every product at zero sales, the newest appears first; with
+  sales temporarily set on the oldest product, it still comes first.
+- **Two instances stay independent**: a page with `limit 2` and `limit 4` reports
+  `2 products` and `4 products`.
+
+**Not verified**
+
+- The editor canvas has not been exercised in a browser here — the editor screenshot is
+  captured manually.
+- No test covers `ProductsController` against a real WooCommerce query; it is exercised
+  through the running site instead.
+- The NBU outage path (`stale: true`) is written and unit-testable but has not been
+  triggered against a real failure.
+- No accessibility audit beyond native `<ul>`/`<a>`/`<button>` semantics.
 
 ## Naming: why `wso-popular-products`
 
@@ -247,6 +317,27 @@ Kept in the README because they are the useful part:
    shadows the block context, so `context.showImage` was `undefined`, `!undefined` was true,
    and the image was hidden even when the product had one. Whether the element exists is now
    decided in PHP (`$showImage`), and the directive only reads `context.item`.
+9. **An `exit` guard inside a data file truncated the test suite.** `view.asset.php` is a
+   `require`d file that returns an array, but it carried the usual
+   `defined( 'ABSPATH' ) || exit;` line. Outside WordPress that `exit` terminates the
+   *including* process — PHPUnit reported seven tests out of twenty-four and exited with
+   status 0, which looks like success. Asset files now return only, and
+   `CodingRulesTest::testDataFilesDoNotExit` pins the rule with the reason written down.
+
+## How the conversion is wired
+
+Three decisions worth naming:
+
+- **The server sends both the formatted price and the number.** `price` is `"129,00 ₴"`;
+  `priceValue` is `129`. The client never parses a localised string back into a float.
+- **`priceText` is derived, not stored twice.** Each product carries `priceText`, recomputed
+  from `priceValue` when the toggle flips. There is one source of truth for the number on
+  screen.
+- **The button sits in the toolbar, not on each card.** It flips the whole block; a button
+  per card would imply per-card state that does not exist.
+
+A missing rate is not an error: the prices stay in the store currency and the button stays
+`disabled`, with the reason in its `title`.
 
 ## License
 

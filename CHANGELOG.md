@@ -6,6 +6,32 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-11-17
+
+### Added
+
+- **NBU Exchange Rates block** (wso/nbu-rates): today's hryvnia rates for a configurable
+  list of currencies, read from the National Bank of Ukraine's public API.
+- **Currency toggle on product cards** (showCurrencyToggle, convertTo): a button in the
+  toolbar switches every price in the block to USD, EUR or PLN at the official NBU rate and
+  back. The button is disabled while no rate is available.
+- Rates\RateProvider: normalizes the NBU payload, caches it for six hours, and serves the
+  last good answer (with stale: true) when the bank's API is unreachable.
+- Rates\RatesController: GET /wso-popular-products/v1/rates?codes=USD,EUR, capped at 12
+  codes per request, invalid codes dropped rather than rejected.
+- Support\Logger for the WooCommerce log.
+- 	ools/verify-toggle.mjs: drives headless Chrome over the DevTools Protocol, clicks the
+  toggle and asserts the prices change and come back.
+- Tests: metadata contract now runs per block from the same list BlockRegistrar
+  registers; CodingRulesTest gained 	estDataFilesDoNotExit after an exit guard in an
+  asset file silently truncated the suite to seven tests.
+
+### Changed
+
+- Blocks moved into locks/<name>/ with their assets side by side, the convention
+  @wordpress/scripts produces. BlockRegistrar registers an explicit list.
+- The products payload gained priceValue and currency, so the browser never parses a
+  localised price string.
 ## [1.0.4] — 2026-11-17
 
 ### Changed
@@ -79,7 +105,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Prices formatted with `wc_price()` and HTML-decoded once, so they render as text rather
   than `&nbsp;` entities.
 
-[Unreleased]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.4...v1.1.0
 [1.0.4]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/MaksymK-web-dev/wso-popular-products/compare/v1.0.1...v1.0.2

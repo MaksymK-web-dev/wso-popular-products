@@ -15,10 +15,9 @@
 !/.github/
 !/tests/
 !/docs/
-!/assets/
+!/blocks/
+!/tools/
 !/src/
-!/block.json
-!/render.php
 !/autoload.php
 !/wso-popular-products.php
 

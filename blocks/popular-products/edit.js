@@ -124,10 +124,12 @@ registerBlockType( NAMESPACE, {
 		limit: { type: 'number', default: 3 },
 		showPrice: { type: 'boolean', default: true },
 		showImage: { type: 'boolean', default: true },
+		showCurrencyToggle: { type: 'boolean', default: false },
+		convertTo: { type: 'string', default: 'USD' },
 	},
 
 	edit: ( { attributes, setAttributes } ) => {
-		const { heading, limit, showPrice, showImage } = attributes;
+		const { heading, limit, showPrice, showImage, showCurrencyToggle, convertTo } = attributes;
 		const blockProps = useBlockProps( { className: 'wso-pp' } );
 
 		return el(
@@ -165,7 +167,25 @@ registerBlockType( NAMESPACE, {
 						label: __( 'Show image', 'wso-popular-products' ),
 						checked: showImage,
 						onChange: ( value ) => setAttributes( { showImage: value } ),
-					} )
+					} ),
+					el( ToggleControl, {
+						label: __( 'Let shoppers show prices in another currency', 'wso-popular-products' ),
+						checked: showCurrencyToggle,
+						onChange: ( value ) => setAttributes( { showCurrencyToggle: value } ),
+						help: __( 'Adds a button that converts every price at the NBU rate.', 'wso-popular-products' ),
+					} ),
+					showCurrencyToggle
+						? el( SelectControl, {
+							label: __( 'Convert to', 'wso-popular-products' ),
+							value: convertTo,
+							options: [
+								{ value: 'USD', label: 'USD — US dollar' },
+								{ value: 'EUR', label: 'EUR — euro' },
+								{ value: 'PLN', label: 'PLN — Polish złoty' },
+							],
+							onChange: ( value ) => setAttributes( { convertTo: value } ),
+						} )
+						: null
 				)
 			),
 			el(

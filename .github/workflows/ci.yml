@@ -76,12 +76,14 @@ jobs:
         with:
           node-version: '20'
 
-      # The block ships unbuilt ES modules. Parsing them with the module goal catches
+      # The blocks ship unbuilt ES modules. Parsing them with the module goal catches
       # syntax errors that would otherwise only appear in a browser console.
       - name: Parse editor and view scripts
         run: |
-          node --input-type=module --check < assets/view.js
-          node --check assets/edit.js
+          for block in blocks/*/; do
+            node --check "$block/edit.js"
+            node --input-type=module --check < "$block/view.js"
+          done
 
       # Runs edit.js against stubbed wp.* globals and asserts it registers the block.
       # Catches the failure that has no message: a script enqueued without its

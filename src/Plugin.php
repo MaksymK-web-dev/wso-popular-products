@@ -10,6 +10,8 @@ declare( strict_types = 1 );
 namespace WSO\PopularProducts;
 
 use WSO\PopularProducts\Block\BlockRegistrar;
+use WSO\PopularProducts\Rates\RateProvider;
+use WSO\PopularProducts\Rates\RatesController;
 use WSO\PopularProducts\Rest\ProductsController;
 
 /**
@@ -53,6 +55,7 @@ final class Plugin {
 
 		( new BlockRegistrar( WSO_PP_DIR ) )->register();
 		( new ProductsController() )->register();
+		( new RatesController( new RateProvider() ) )->register();
 	}
 
 	/**

@@ -12,17 +12,26 @@ namespace WSO\PopularProducts\Block;
 use WSO\PopularProducts\Contract\HookRegistrar;
 
 /**
- * Registers the block from block.json.
+ * Registers every block shipped by this plugin from its block.json.
  *
- * The block.json file is the single source of truth: scripts, styles, attributes and the
- * render file are declared there, so the PHP side stays at four lines and the metadata is
- * readable by tooling.
+ * The list is explicit rather than a directory scan, so the shipped surface is readable in
+ * one place and a stray folder cannot register itself.
  *
  * Registration happens immediately rather than on a second `init` hook. The plugin boots
  * on `init` itself, so adding another `init` callback from inside that hook is a race —
  * the first version of this class did exactly that and the block silently never appeared.
  */
 final class BlockRegistrar implements HookRegistrar {
+
+	/**
+	 * Block directories, relative to the plugin root.
+	 *
+	 * @var string[]
+	 */
+	private const BLOCKS = array(
+		'blocks/popular-products',
+		'blocks/nbu-rates',
+	);
 
 	/**
 	 * Sets up the registrar.
@@ -35,13 +44,28 @@ final class BlockRegistrar implements HookRegistrar {
 	 * {@inheritDoc}
 	 */
 	public function register(): void {
-		$this->registerBlock();
+		$this->registerBlocks();
 	}
 
 	/**
-	 * Registers the block type.
+	 * Registers every block in BLOCKS.
 	 */
-	public function registerBlock(): void {
-		register_block_type( $this->pluginDir . '/block.json' );
+	public function registerBlocks(): void {
+		foreach ( self::BLOCKS as $relative ) {
+			$metadata = $this->pluginDir . '/' . $relative . '/block.json';
+
+			if ( is_readable( $metadata ) ) {
+				register_block_type( $metadata );
+			}
+		}
+	}
+
+	/**
+	 * The block directories this plugin registers.
+	 *
+	 * @return string[]
+	 */
+	public static function blocks(): array {
+		return self::BLOCKS;
 	}
 }

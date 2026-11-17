@@ -1,5 +1,5 @@
 /**
- * Runs assets/edit.js with stubbed WordPress globals and asserts it registers the block.
+ * Runs each block's edit.js with stubbed WordPress globals and asserts it registers.
  *
  * This catches the failure mode that has no error message: when the editor script is
  * enqueued without its dependencies, `wp.blocks` is undefined, the script throws, and the
@@ -17,7 +17,34 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname( fileURLToPath( import.meta.url ) );
-const source = readFileSync( join( here, '..', '..', 'assets', 'edit.js' ), 'utf8' );
+const pluginRoot = join( here, '..', '..' );
+
+/**
+ * Blocks under test: directory, registered name, and the attributes block.json promises.
+ */
+const BLOCKS = [
+	{
+		dir: 'popular-products',
+		name: 'wso/popular-products',
+		attributes: {
+			heading: 'Popular products',
+			limit: 3,
+			showPrice: true,
+			showImage: true,
+			showCurrencyToggle: false,
+			convertTo: 'USD',
+		},
+	},
+	{
+		dir: 'nbu-rates',
+		name: 'wso/nbu-rates',
+		attributes: {
+			heading: 'Exchange rates',
+			codes: 'USD,EUR,PLN',
+			showDate: true,
+		},
+	},
+];
 
 /**
  * Minimal stand-ins for the WordPress packages the editor script destructures at load.
@@ -59,6 +86,7 @@ const makeGlobals = () => {
 			RangeControl: component( 'RangeControl' ),
 			TextControl: component( 'TextControl' ),
 			ToggleControl: component( 'ToggleControl' ),
+			SelectControl: component( 'SelectControl' ),
 			Spinner: component( 'Spinner' ),
 			Notice: component( 'Notice' ),
 		},
@@ -76,64 +104,20 @@ const makeGlobals = () => {
 };
 
 /**
- * Executes edit.js against the stubs.
+ * Executes one block's edit.js against the stubs.
  *
+ * @param {string} dir Block directory name.
  * @return {Array<Object>} Registration calls.
  */
-const runEditorScript = () => {
+const runEditorScript = ( dir ) => {
+	const source = readFileSync( join( pluginRoot, 'blocks', dir, 'edit.js' ), 'utf8' );
 	const { wp, registered } = makeGlobals();
 	const context = createContext( { wp, window: { location: { href: 'https://example.test/' } }, console } );
 
-	runInContext( source, context, { filename: 'edit.js' } );
+	runInContext( source, context, { filename: `${ dir }/edit.js` } );
 
 	return registered;
 };
-
-test( 'registers exactly one block', () => {
-	const registered = runEditorScript();
-
-	assert.equal( registered.length, 1 );
-} );
-
-test( 'registers the namespace declared in block.json', () => {
-	const [ registration ] = runEditorScript();
-
-	assert.equal( registration.name, 'wso/popular-products' );
-} );
-
-test( 'declares the attributes the block.json contract promises', () => {
-	const [ { settings } ] = runEditorScript();
-	const { attributes } = settings;
-
-	assert.equal( attributes.heading.default, 'Popular products' );
-	assert.equal( attributes.limit.default, 3 );
-	assert.equal( attributes.showPrice.default, true );
-	assert.equal( attributes.showImage.default, true );
-} );
-
-test( 'provides edit and save, with save producing no static markup', () => {
-	const [ { settings } ] = runEditorScript();
-
-	assert.equal( typeof settings.edit, 'function' );
-	assert.equal( typeof settings.save, 'function' );
-	assert.equal( settings.save(), null, 'a dynamic block must save nothing into post content' );
-} );
-
-test( 'edit() returns an element tree rather than throwing', () => {
-	const [ { settings } ] = runEditorScript();
-
-	const tree = settings.edit( {
-		attributes: {
-			heading: 'Popular products',
-			limit: 3,
-			showPrice: true,
-			showImage: true,
-		},
-		setAttributes: () => {},
-	} );
-
-	assert.ok( tree, 'edit() must return something renderable' );
-} );
 
 /**
  * Invokes every function component found in an element tree.
@@ -169,18 +153,55 @@ const renderComponents = ( node, depth = 0 ) => {
 	return node;
 };
 
-test( 'every component in the editor tree renders without throwing', () => {
-	const [ { settings } ] = runEditorScript();
-
-	const tree = settings.edit( {
-		attributes: {
-			heading: 'Popular products',
-			limit: 3,
-			showPrice: true,
-			showImage: true,
-		},
-		setAttributes: () => {},
+for ( const block of BLOCKS ) {
+	test( `${ block.dir }: registers exactly one block`, () => {
+		assert.equal( runEditorScript( block.dir ).length, 1 );
 	} );
 
-	assert.doesNotThrow( () => renderComponents( tree ) );
-} );
+	test( `${ block.dir }: registers the namespace block.json declares`, () => {
+		const [ registration ] = runEditorScript( block.dir );
+
+		assert.equal( registration.name, block.name );
+	} );
+
+	test( `${ block.dir }: attributes match the block.json contract`, () => {
+		const [ { settings } ] = runEditorScript( block.dir );
+
+		for ( const [ key, expected ] of Object.entries( block.attributes ) ) {
+			assert.equal(
+				settings.attributes[ key ]?.default,
+				expected,
+				`${ block.dir }: attribute "${ key }" default drifted from block.json.`
+			);
+		}
+	} );
+
+	test( `${ block.dir }: save() writes nothing into post content`, () => {
+		const [ { settings } ] = runEditorScript( block.dir );
+
+		assert.equal( typeof settings.save, 'function' );
+		assert.equal( settings.save(), null, 'a dynamic block must not save static markup' );
+	} );
+
+	test( `${ block.dir }: edit() returns an element tree`, () => {
+		const [ { settings } ] = runEditorScript( block.dir );
+
+		const tree = settings.edit( {
+			attributes: { ...block.attributes },
+			setAttributes: () => {},
+		} );
+
+		assert.ok( tree, 'edit() must return something renderable' );
+	} );
+
+	test( `${ block.dir }: every component in the editor tree renders`, () => {
+		const [ { settings } ] = runEditorScript( block.dir );
+
+		const tree = settings.edit( {
+			attributes: { ...block.attributes },
+			setAttributes: () => {},
+		} );
+
+		assert.doesNotThrow( () => renderComponents( tree ) );
+	} );
+}

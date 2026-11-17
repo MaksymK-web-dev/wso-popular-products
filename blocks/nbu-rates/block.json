@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "wso/nbu-rates",
+  "version": "1.1.0",
+  "title": "NBU Exchange Rates",
+  "category": "widgets",
+  "icon": "money-alt",
+  "description": "Official hryvnia rates from the National Bank of Ukraine, fetched in the browser with no page reload.",
+  "keywords": ["currency", "rates", "exchange", "nbu", "курс", "валют"],
+  "textdomain": "wso-popular-products",
+  "supports": {
+    "html": false,
+    "align": ["wide", "full"],
+    "spacing": {
+      "margin": true,
+      "padding": true
+    },
+    "color": {
+      "background": true,
+      "text": true
+    }
+  },
+  "attributes": {
+    "heading": {
+      "type": "string",
+      "default": "Exchange rates"
+    },
+    "codes": {
+      "type": "string",
+      "default": "USD,EUR,PLN"
+    },
+    "showDate": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "editorScript": "file:./edit.js",
+  "editorStyle": "file:./editor.css",
+  "style": "file:./style.css",
+  "viewScriptModule": "file:./view.js",
+  "render": "file:./render.php"
+}

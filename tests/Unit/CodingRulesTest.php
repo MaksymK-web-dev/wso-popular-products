@@ -187,23 +187,58 @@ final class CodingRulesTest extends TestCase {
 	}
 
 	/**
-	 * The render callback must decide everything before it starts printing.
+	 * Data files that `return` a value must not contain `exit`.
+	 *
+	 * This is not style. `*.asset.php` is pulled in with `require`, and an `exit` guard in
+	 * one of them terminates the *including* process — which silently truncated this very
+	 * suite to seven tests with exit code 0 before the guard was removed.
 	 */
-	public function testRenderTemplateContainsNoLogic(): void {
-		$source = (string) file_get_contents( self::root() . '/render.php' );
+	public function testDataFilesDoNotExit(): void {
+		$checked = 0;
 
-		$markup = substr( $source, (int) strpos( $source, '?>' ) );
+		foreach ( self::sources() as $path => $source ) {
+			if ( ! str_ends_with( $path, '.asset.php' ) ) {
+				continue;
+			}
 
-		self::assertSame(
-			0,
-			preg_match_all( '/<\?php\s+(if|else|elseif|foreach|for|while|switch)\b/', $markup ),
-			'render.php branches inside the markup; move the decision above the first ?>.'
-		);
+			$checked++;
 
-		self::assertSame(
-			0,
-			preg_match_all( '/<\?php\s+echo\s+[^;]*\?[^:]*:/', $markup ),
-			'render.php uses a ternary inside the markup.'
-		);
+			self::assertSame(
+				0,
+				preg_match_all( '/\b(die|exit)\s*(\(|;)/', $source ),
+				basename( $path ) . ' exits; a required data file must return instead.'
+			);
+		}
+
+		self::assertGreaterThan( 0, $checked, 'No .asset.php files were found to check.' );
+	}
+
+	/**
+	 * Every render callback must decide everything before it starts printing.
+	 */
+	public function testRenderTemplatesContainNoLogic(): void {
+		$checked = 0;
+
+		foreach ( glob( self::root() . '/blocks/*/render.php' ) ?: array() as $path ) {
+			$checked++;
+
+			$source = (string) file_get_contents( $path );
+			$markup = substr( $source, (int) strpos( $source, '?>' ) );
+			$name   = basename( dirname( $path ) ) . '/render.php';
+
+			self::assertSame(
+				0,
+				preg_match_all( '/<\?php\s+(if|else|elseif|foreach|for|while|switch)\b/', $markup ),
+				$name . ' branches inside the markup; move the decision above the first ?>.'
+			);
+
+			self::assertSame(
+				0,
+				preg_match_all( '/<\?php\s+echo\s+[^;]*\?[^:]*:/', $markup ),
+				$name . ' uses a ternary inside the markup.'
+			);
+		}
+
+		self::assertGreaterThan( 0, $checked, 'No block render.php files were found to check.' );
 	}
 }

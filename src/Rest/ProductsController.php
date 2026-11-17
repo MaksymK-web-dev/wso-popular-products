@@ -122,12 +122,16 @@ final class ProductsController implements HookRegistrar {
 		$image_url = $image_id > 0 ? (string) wp_get_attachment_image_url( $image_id, 'woocommerce_thumbnail' ) : '';
 
 		return array(
-			'id'        => $product->get_id(),
-			'name'      => $product->get_name(),
-			'permalink' => (string) get_permalink( $product->get_id() ),
-			'price'     => $this->formatPrice( $product ),
-			'image'     => $image_url,
-			'hasImage'  => '' !== $image_url,
+			'id'         => $product->get_id(),
+			'name'       => $product->get_name(),
+			'permalink'  => (string) get_permalink( $product->get_id() ),
+			'price'      => $this->formatPrice( $product ),
+			// The formatted string is for display; the number is for conversion. Sending both
+			// keeps the client from having to parse "129,00 ₴" back into a float.
+			'priceValue' => (float) $product->get_price(),
+			'currency'   => (string) get_woocommerce_currency(),
+			'image'      => $image_url,
+			'hasImage'   => '' !== $image_url,
 		);
 	}
 
