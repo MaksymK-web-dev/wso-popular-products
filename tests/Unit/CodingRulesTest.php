@@ -184,11 +184,7 @@ final class CodingRulesTest extends TestCase {
 	}
 
 	/**
-	 * Data files that `return` a value must not contain `exit`.
-	 *
-	 * This is not style. `*.asset.php` is pulled in with `require`, and an `exit` guard in
-	 * one of them terminates the *including* process — which silently truncated this very
-	 * suite to seven tests with exit code 0 before the guard was removed.
+	 * Data files must not contain `exit`: it terminates the including process.
 	 */
 	public function testDataFilesDoNotExit(): void {
 		$checked = 0;
