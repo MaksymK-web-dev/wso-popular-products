@@ -20,7 +20,7 @@
 !/block.json
 !/render.php
 !/autoload.php
-!/popular-products-block.php
+!/wso-popular-products.php
 
 # Never ship editor folders, dependencies or caches
 /.idea/

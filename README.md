@@ -200,6 +200,12 @@ Kept in the README because they are the useful part:
 4. **`get_price_html()` is not text.** Stripping tags left `149,00&nbsp;&#8372;` plus
    screen-reader sentences, and `data-wp-text` set all of it as literal text. Prices are
    now formatted with `wc_price()` and HTML-decoded once.
+5. **`const { apiFetch } = wp.apiFetch`.** `wp.apiFetch` is the function itself, not an
+   object with a method on it, so destructuring produced `undefined` and the preview threw
+   inside its effect — the editor showed "This block has encountered an error and cannot be
+   previewed" while the front end kept working. The earlier test missed it because the
+   `useEffect` stub never ran the effect body; it now does, and there is a test that invokes
+   every component in the tree.
 
 ## License
 

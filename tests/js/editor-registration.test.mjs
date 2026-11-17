@@ -40,7 +40,14 @@ const makeGlobals = () => {
 		element: {
 			createElement: ( type, props, ...children ) => ( { type, props, children } ),
 			Fragment: 'Fragment',
-			useEffect: () => {},
+			// Runs the effect immediately. In the editor its body is where the fetch lives,
+			// and a stub that skips it would hide exactly the errors this file exists to catch.
+			useEffect: ( callback ) => {
+				const cleanup = callback();
+				if ( typeof cleanup === 'function' ) {
+					cleanup();
+				}
+			},
 			useState: ( initial ) => [ initial, () => {} ],
 		},
 		blockEditor: {
@@ -58,7 +65,11 @@ const makeGlobals = () => {
 		i18n: {
 			__: ( text ) => text,
 		},
-		apiFetch: () => Promise.resolve( [] ),
+		// Like the real package: a callable with helpers attached, not an object.
+		apiFetch: Object.assign( ( options ) => Promise.resolve( [] ), {
+			createNonceMiddleware: () => () => {},
+			use: () => {},
+		} ),
 	};
 
 	return { wp, registered };
@@ -122,4 +133,54 @@ test( 'edit() returns an element tree rather than throwing', () => {
 	} );
 
 	assert.ok( tree, 'edit() must return something renderable' );
+} );
+
+/**
+ * Invokes every function component found in an element tree.
+ *
+ * `edit()` only *describes* its tree; the components inside it run later, in the editor.
+ * That gap is exactly where a runtime error hides — the block renders a red
+ * "This block has encountered an error and cannot be previewed" box instead of failing a
+ * test. Executing the components here closes it.
+ *
+ * @param {*} node Element, element list or primitive.
+ * @param {number} depth Guard against runaway recursion.
+ * @return {*} Whatever the component returned, or the node unchanged.
+ */
+const renderComponents = ( node, depth = 0 ) => {
+	if ( depth > 6 || node === null || typeof node !== 'object' ) {
+		return node;
+	}
+
+	if ( Array.isArray( node ) ) {
+		return node.map( ( child ) => renderComponents( child, depth + 1 ) );
+	}
+
+	// Our createElement stub produces { type, props, children }.
+	if ( typeof node.type === 'function' ) {
+		const rendered = node.type( node.props ?? {} );
+		return renderComponents( rendered, depth + 1 );
+	}
+
+	if ( node.children ) {
+		node.children = renderComponents( node.children, depth + 1 );
+	}
+
+	return node;
+};
+
+test( 'every component in the editor tree renders without throwing', () => {
+	const [ { settings } ] = runEditorScript();
+
+	const tree = settings.edit( {
+		attributes: {
+			heading: 'Popular products',
+			limit: 3,
+			showPrice: true,
+			showImage: true,
+		},
+		setAttributes: () => {},
+	} );
+
+	assert.doesNotThrow( () => renderComponents( tree ) );
 } );

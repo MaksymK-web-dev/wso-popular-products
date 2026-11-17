@@ -16,7 +16,8 @@ const { createElement: el, Fragment, useEffect, useState } = wp.element;
 const { InspectorControls, useBlockProps } = wp.blockEditor;
 const { PanelBody, RangeControl, TextControl, ToggleControl, Spinner, Notice } = wp.components;
 const { __ } = wp.i18n;
-const { apiFetch } = wp.apiFetch;
+// wp.apiFetch is the function itself, not an object with a method on it.
+const apiFetch = wp.apiFetch;
 
 const NAMESPACE = 'wso/popular-products';
 
