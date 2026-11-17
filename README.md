@@ -43,13 +43,17 @@ flowchart LR
 
 ## Screenshots
 
-| Editor | Front end |
-| --- | --- |
-| ![Block in the editor](docs/screenshots/editor.png) | ![Block on the front end](docs/screenshots/frontend.png) |
+### In the editor
 
-The editor preview uses the same REST endpoint the front end does, so the canvas shows
-real products rather than a mock — and the inspector controls (heading, count, price,
-image toggles) take effect immediately.
+![The block in the post editor: live preview with three products and both inspector panels](docs/screenshots/editor.png)
+
+The preview uses the same REST endpoint the front end does, so the canvas shows real
+products rather than a mock, and the inspector controls (heading, count, price and image
+toggles) take effect immediately.
+
+### On the front end
+
+![The block rendered on the front end: three product cards with images and prices](docs/screenshots/frontend.png)
 
 ## Installation
 
