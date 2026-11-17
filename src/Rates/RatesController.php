@@ -13,11 +13,6 @@ use WSO\PopularProducts\Contract\HookRegistrar;
 
 /**
  * Serves the rate table the blocks read.
- *
- * `?codes=USD,EUR` narrows the answer to what a block actually displays: the full NBU
- * table is ~40 currencies, and shipping all of them to the browser per request is waste.
- * Invalid codes are dropped rather than rejected, so a typo degrades to "fewer rates"
- * instead of an empty page.
  */
 final class RatesController implements HookRegistrar {
 

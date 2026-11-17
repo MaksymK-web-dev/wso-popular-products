@@ -1,9 +1,6 @@
 <?php
 /**
- * PSR-4 autoloader for the WSO\PopularProducts namespace.
- *
- * No Composer runtime dependency: the plugin must work when dropped into a WordPress
- * install that never ran `composer install`.
+ * PSR-4 autoloader.
  *
  * @package WSO\PopularProducts
  */

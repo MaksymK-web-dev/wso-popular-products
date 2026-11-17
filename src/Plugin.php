@@ -15,10 +15,7 @@ use WSO\PopularProducts\Rates\RatesController;
 use WSO\PopularProducts\Rest\ProductsController;
 
 /**
- * Wires the plugin's two services: the block registration and the REST endpoint.
- *
- * The dependency graph is one line long, so there is no container — an explicit
- * composition root is easier to read and to test than an indirection that hides nothing.
+ * Wires the block registration and the REST endpoints.
  */
 final class Plugin {
 

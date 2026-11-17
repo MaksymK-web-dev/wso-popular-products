@@ -13,16 +13,6 @@ use WSO\PopularProducts\Contract\HookRegistrar;
 
 /**
  * Serves the product list the block renders.
- *
- * The block could call WooCommerce's Store API directly, and that would work. This proxy
- * exists for three reasons worth naming:
- *
- *   1. The response shape is ours, so the client never has to know WooCommerce's payload.
- *   2. Results are cached in a transient, so a popular page does not re-query the
- *      database on every visitor.
- *   3. The endpoint stays alive when WooCommerce's Store API is unavailable (for example
- *      on a site where the blocks package is disabled), returning an empty list instead
- *      of a fatal error.
  */
 final class ProductsController implements HookRegistrar {
 
@@ -91,11 +81,8 @@ final class ProductsController implements HookRegistrar {
 			array(
 				'status'   => 'publish',
 				'limit'    => $limit,
-				// WooCommerce keeps lifetime sales in this meta key; wc_get_products() has no
-				// "popularity" argument (that lives in WC_Query::order_by_popularity_post_clauses).
-				// The date tie-break matters: on a store where nothing has sold yet every product
-				// has total_sales = 0, and without it the order is whatever the database returns —
-				// a newly added product could land anywhere, including outside the limit.
+				// No "popularity" argument exists in wc_get_products(); total_sales does. The
+				// date tie-break keeps a fresh product visible while nothing has sold yet.
 				'orderby'  => array(
 					'meta_value_num' => 'DESC',
 					'date'           => 'DESC',
@@ -126,8 +113,8 @@ final class ProductsController implements HookRegistrar {
 			'name'       => $product->get_name(),
 			'permalink'  => (string) get_permalink( $product->get_id() ),
 			'price'      => $this->formatPrice( $product ),
-			// The formatted string is for display; the number is for conversion. Sending both
-			// keeps the client from having to parse "129,00 ₴" back into a float.
+			// Formatted for display, numeric for conversion: the client never parses a
+			// localised price string.
 			'priceValue' => (float) $product->get_price(),
 			'currency'   => (string) get_woocommerce_currency(),
 			'image'      => $image_url,
@@ -138,11 +125,8 @@ final class ProductsController implements HookRegistrar {
 	/**
 	 * Formats the price as plain text.
 	 *
-	 * The price is built from wc_price() rather than get_price_html(): the latter emits
-	 * markup plus screen-reader sentences ("Original price was… Current price is…"), and
-	 * its HTML entities survive wp_strip_all_tags() — the first version of this endpoint
-	 * returned `149,00&nbsp;&#8372;` straight into the block, where data-wp-text set it as
-	 * literal text. wc_price() plus a single decode gives "149,00 ₴".
+	 * Uses wc_price() rather than get_price_html(), which mixes markup, entities and
+	 * screen-reader sentences.
 	 *
 	 * @param \WC_Product $_product Product.
 	 * @return string Plain-text price.

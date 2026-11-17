@@ -1,9 +1,6 @@
 /**
  * End-to-end check for the currency toggle, driven through the Chrome DevTools Protocol.
  *
- * A screenshot proves the block renders; it does not prove the button does anything. This
- * script clicks it and reads the price text before and after.
- *
  * Usage:
  *   chrome --headless=new --remote-debugging-port=9222 --user-data-dir=<tmp> about:blank
  *   node tools/verify-toggle.mjs http://localhost:9222 https://example.test/?page_id=41
@@ -102,10 +99,7 @@ const waitFor = async ( expression, timeoutMs = 15000 ) => {
 
 await waitFor( `!!document.querySelector( '.wso-pp__convert' )` );
 
-// Wait for a *loaded* state, not merely for the element to exist. The block renders its
-// shell during the first paint, so a selector match happens before the rate and the
-// product list have arrived; reading then yields empty strings and every later
-// comparison is off by one interaction.
+// Wait for a loaded state: the shell exists after the first paint, before the data arrives.
 await waitFor(
 	`(() => {
 		const button = document.querySelector( '.wso-pp__convert' );

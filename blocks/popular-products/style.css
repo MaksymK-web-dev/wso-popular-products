@@ -1,8 +1,5 @@
 /**
  * Front-end and shared styles.
- *
- * Plain CSS on purpose: one block, no preprocessor step, and custom properties so the
- * block inherits the theme's palette instead of hard-coding colours.
  */
 
 .wso-pp {

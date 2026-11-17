@@ -1,10 +1,5 @@
 /**
- * Runs each block's edit.js with stubbed WordPress globals and asserts it registers.
- *
- * This catches the failure mode that has no error message: when the editor script is
- * enqueued without its dependencies, `wp.blocks` is undefined, the script throws, and the
- * block quietly disappears from the inserter. Running the file with the globals present
- * proves the registration call itself is well-formed.
+ * Runs each block's edit.js against stubbed WordPress globals and asserts it registers.
  *
  * Run: node --test tests/js
  */
@@ -67,8 +62,7 @@ const makeGlobals = () => {
 		element: {
 			createElement: ( type, props, ...children ) => ( { type, props, children } ),
 			Fragment: 'Fragment',
-			// Runs the effect immediately. In the editor its body is where the fetch lives,
-			// and a stub that skips it would hide exactly the errors this file exists to catch.
+			// Runs the effect immediately: its body is where the fetch lives.
 			useEffect: ( callback ) => {
 				const cleanup = callback();
 				if ( typeof cleanup === 'function' ) {
@@ -122,10 +116,7 @@ const runEditorScript = ( dir ) => {
 /**
  * Invokes every function component found in an element tree.
  *
- * `edit()` only *describes* its tree; the components inside it run later, in the editor.
- * That gap is exactly where a runtime error hides — the block renders a red
- * "This block has encountered an error and cannot be previewed" box instead of failing a
- * test. Executing the components here closes it.
+ * `edit()` only describes its tree; the components run later, in the editor.
  *
  * @param {*} node Element, element list or primitive.
  * @param {number} depth Guard against runaway recursion.

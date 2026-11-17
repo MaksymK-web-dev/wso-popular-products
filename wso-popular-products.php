@@ -30,8 +30,7 @@ define( 'WSO_PP_DIR', __DIR__ );
 require_once __DIR__ . '/autoload.php';
 
 /**
- * Declares WooCommerce HPOS compatibility; the block reads products, not orders, but the
- * declaration keeps WooCommerce from warning about an untested integration.
+ * Declares WooCommerce HPOS compatibility.
  */
 add_action(
 	'before_woocommerce_init',

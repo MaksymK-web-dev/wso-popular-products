@@ -10,11 +10,7 @@ declare( strict_types = 1 );
 namespace WSO\PopularProducts\Support;
 
 /**
- * Writes to the WooCommerce log so entries land in WooCommerce → Status → Logs.
- *
- * WooCommerce is a soft dependency of this plugin — the blocks render, they just have no
- * products without it — so a missing logger is a silent no-op rather than an error path.
- * Every call site here is diagnostic, never control flow.
+ * Writes to the WooCommerce log.
  */
 final class Logger {
 

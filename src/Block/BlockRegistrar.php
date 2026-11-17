@@ -13,13 +13,6 @@ use WSO\PopularProducts\Contract\HookRegistrar;
 
 /**
  * Registers every block shipped by this plugin from its block.json.
- *
- * The list is explicit rather than a directory scan, so the shipped surface is readable in
- * one place and a stray folder cannot register itself.
- *
- * Registration happens immediately rather than on a second `init` hook. The plugin boots
- * on `init` itself, so adding another `init` callback from inside that hook is a race —
- * the first version of this class did exactly that and the block silently never appeared.
  */
 final class BlockRegistrar implements HookRegistrar {
 

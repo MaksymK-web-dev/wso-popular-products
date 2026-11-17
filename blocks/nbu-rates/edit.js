@@ -1,8 +1,5 @@
 /**
- * Editor behaviour for the rates block.
- *
- * No JSX and no build step, same as the products block: the file ships as readable source
- * and works from a git clone.
+ * Editor behaviour for the rates block: no JSX, no build step.
  */
 
 const { registerBlockType } = wp.blocks;
@@ -18,7 +15,7 @@ const NAMESPACE = 'wso/nbu-rates';
 /**
  * Normalizes a comma-separated list the way the server does.
  *
- * Mirrors RateProvider::parseCodes(): three upper-case letters, duplicates removed.
+ * Mirrors RateProvider::parseCodes().
  *
  * @param {string} list Raw list.
  * @return {Array<string>} Codes.

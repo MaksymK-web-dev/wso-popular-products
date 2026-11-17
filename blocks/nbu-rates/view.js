@@ -1,9 +1,5 @@
 /**
  * Front-end behaviour for the rates block.
- *
- * Same shape as the products block: the server renders a shell, this module fills it from
- * the plugin's REST route and patches the existing DOM. State lives in the block's own
- * context so two rate blocks on one page refresh independently.
  */
 
 import { store, getContext } from '@wordpress/interactivity';
@@ -11,8 +7,7 @@ import { store, getContext } from '@wordpress/interactivity';
 /**
  * Formats a rate with the locale's decimal separator and two fraction digits.
  *
- * The NBU publishes four decimals for most currencies; two is what a shopper reads on a
- * price tag, and the exact value stays available in the payload for conversion.
+ * The NBU publishes four decimals; two is what a price tag shows.
  *
  * @param {number} rate Rate per one unit of the currency.
  * @return {string} Formatted rate.
@@ -85,8 +80,7 @@ const toRows = ( payload, context ) => {
 	const rates = payload && payload.rates ? payload.rates : {};
 	const rows = [];
 
-	// Iterate the requested order, not the payload order, so the block shows currencies in
-	// the order the editor put them in.
+	// Requested order, not payload order: the editor decides what comes first.
 	const order = Array.isArray( context.codes ) && context.codes.length > 0
 		? context.codes
 		: Object.keys( rates );

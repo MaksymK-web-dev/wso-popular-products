@@ -35,8 +35,7 @@ $wso_rates_context = array(
 	'hasError'   => false,
 	'hasDate'    => false,
 	'dateText'   => '',
-	// Labels travel from PHP so the strings stay inside the plugin's text domain
-	// instead of being duplicated as literals in a JavaScript module.
+	// Labels travel from PHP to keep the strings in the text domain.
 	'labels'     => array(
 		'refresh'    => esc_html__( 'Refresh', 'wso-popular-products' ),
 		'loading'    => esc_html__( 'Loading…', 'wso-popular-products' ),

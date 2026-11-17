@@ -1,14 +1,8 @@
 /**
  * Editor behaviour.
  *
- * Written against `wp.element` and `wp.components` directly — no JSX, no build step.
- * That is a deliberate trade: the block ships as readable source that works from a git
- * clone, and the only thing a reviewer needs to run it is the plugin folder.
- *
- * block.json stays the source of truth for the server: attributes are declared there for
- * rendering and REST validation. The editor needs the same schema at registration time,
- * so the attribute list below mirrors it — the one duplication in this plugin, and the
- * reason it is worth a comment rather than a build pipeline.
+ * Written against `wp.element` and `wp.components` directly: no JSX, no build step.
+ * block.json is the server contract, so the attribute list below mirrors it.
  */
 
 const { registerBlockType } = wp.blocks;
@@ -22,10 +16,7 @@ const apiFetch = wp.apiFetch;
 const NAMESPACE = 'wso/popular-products';
 
 /**
- * Preview list shown in the editor.
- *
- * Uses the plugin's own REST endpoint, so what the editor shows is what the front end
- * will fetch — not a mock.
+ * Preview rendered from the plugin's own REST endpoint.
  *
  * @param {Object} props Component props.
  * @return {Object} Element tree.

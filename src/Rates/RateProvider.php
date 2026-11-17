@@ -14,16 +14,8 @@ use WSO\PopularProducts\Support\Logger;
 /**
  * Reads the National Bank of Ukraine daily rates and caches them.
  *
- * Why a server-side proxy when bank.gov.ua sends `Access-Control-Allow-Origin: *` and the
- * browser could call it directly:
- *
- *   1. One cache instead of one request per visitor — the NBU endpoint returns ~5 KB of
- *      XML-derived JSON for every currency, which no single page needs in full.
- *   2. The page keeps working when the bank's API is slow or down: the last good answer
- *      is kept separately and served stale rather than showing an error.
- *   3. The response shape is ours, so the block never depends on NBU's field names.
- *
- * The trade-off is a second HTTP hop, paid once per cache period.
+ * Proxied server-side so one cache serves every visitor and the last good answer covers
+ * an outage.
  */
 final class RateProvider {
 
@@ -38,8 +30,7 @@ final class RateProvider {
 	private const CACHE_KEY = 'wso_nbu_rates';
 
 	/**
-	 * Cache lifetime: the NBU publishes once per working day, so six hours is generous
-	 * without being stale for long.
+	 * Cache lifetime: the NBU publishes once per working day.
 	 */
 	private const CACHE_TTL = 6 * HOUR_IN_SECONDS;
 
@@ -49,9 +40,7 @@ final class RateProvider {
 	private const LAST_GOOD_KEY = 'wso_nbu_rates_last_good';
 
 	/**
-	 * Currencies that make sense in a Ukrainian store's price list.
-	 *
-	 * The endpoint returns ~40 entries; the rest are only noise on a product card.
+	 * Currencies a storefront price list typically needs.
 	 *
 	 * @var string[]
 	 */
@@ -68,7 +57,7 @@ final class RateProvider {
 	 *     'fetchedAt' => int,          // Unix time this answer was retrieved
 	 *     'stale'     => bool,         // true when served from the last-good copy
 	 *     'error'     => string,       // empty when ok
-	 *     'rates'     => [ 'USD' => ['code'=>'USD','name'=>'Долар США','rate'=>45.3436], … ],
+	 *     'rates'     => [ 'USD' => [ 'code' => 'USD', 'name' => '…', 'rate' => 45.3436 ], … ],
 	 *   ]
 	 *
 	 * @return array<string, mixed>

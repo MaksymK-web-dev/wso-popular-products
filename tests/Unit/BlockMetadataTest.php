@@ -15,13 +15,6 @@ use WSO\PopularProducts\Block\BlockRegistrar;
 
 /**
  * Guards the contract in every block.json this plugin ships.
- *
- * A block is only as good as its metadata: a typo in a file path or a missing asset
- * dependency fails silently at runtime — the block renders, then does nothing. These
- * assertions catch that class of bug without a browser.
- *
- * Scoped to what BlockRegistrar actually registers, so a block that exists on disk but is
- * not in the list cannot pass unnoticed.
  */
 final class BlockMetadataTest extends TestCase {
 
@@ -123,8 +116,7 @@ final class BlockMetadataTest extends TestCase {
 	}
 
 	/**
-	 * A block ships unbuilt, so its asset metadata is hand-written. A missing dependency
-	 * there silently breaks the import map in the browser.
+	 * A missing dependency here breaks the import map in the browser.
 	 *
 	 * @param string $relative Block directory.
 	 */
@@ -146,8 +138,7 @@ final class BlockMetadataTest extends TestCase {
 	}
 
 	/**
-	 * The editor script needs its `wp.*` globals loaded first, which comes from
-	 * edit.asset.php. Without it the block does not appear in the inserter at all.
+	 * Without edit.asset.php the block does not reach the inserter.
 	 *
 	 * @param string $relative Block directory.
 	 */

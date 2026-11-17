@@ -2,24 +2,8 @@
 /**
  * Block render callback.
  *
- * Executed by WordPress when the block is rendered on the front end. The markup is a
- * shell: the product list itself is fetched from the REST endpoint by view.js, so the
- * page does not reload and the block can refresh in place.
- *
- * Structure: every decision is taken in the block below, and the template after it only
- * prints prepared strings. No conditionals, no loops and no function calls that decide
- * anything inside the markup.
- *
- * State lives in the block's own `data-wp-context`, not in the store. A store is global to
- * the page, so two instances of this block sharing it meant pressing Refresh in one
- * refreshed both. Context is per element instance, which is what "each block keeps its own
- * list" actually requires.
- *
- * Note on `showImage` and `showPrice`: they are resolved here, in PHP, by including or
- * omitting the element. Inside `data-wp-each` the item context shadows the block context,
- * so a directive that mixes the two (`!context.item.hasImage || !context.showImage`)
- * evaluates the second half as `!undefined` and hides everything. Per-item directives
- * therefore reference `context.item` only.
+ * The markup is a shell; view.js fills the list from the REST endpoint. Every decision is
+ * taken before the first `?>`, so the template only prints prepared strings.
  *
  * @package WSO\PopularProducts
  *
@@ -34,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-// ─── Input: validated and normalized once ──────────────────────────────
+// Input: validated and normalized once.
 
 $wso_pp_heading = isset( $attributes['heading'] ) && is_scalar( $attributes['heading'] )
 	? sanitize_text_field( (string) $attributes['heading'] )
@@ -60,7 +44,7 @@ if ( ! in_array( $wso_pp_convert_to, \WSO\PopularProducts\Rates\RateProvider::CO
 	$wso_pp_convert_to    = '';
 }
 
-// ─── Derived values ────────────────────────────────────────────────────
+// Derived values.
 
 $wso_pp_context = array(
 	'endpoint'      => esc_url_raw( rest_url( 'wso-popular-products/v1/products' ) ),
@@ -82,8 +66,7 @@ $wso_pp_context = array(
 	'statusText'    => '',
 	'isEmpty'       => false,
 	'hasError'      => false,
-	// Labels travel from PHP so the strings stay inside the plugin's text domain
-	// instead of being duplicated as literals in a JavaScript module.
+	// Labels travel from PHP to keep the strings in the text domain.
 	'labels'        => array(
 		'toConverted'     => sprintf(
 			/* translators: %s: currency code, e.g. USD. */
@@ -99,7 +82,8 @@ $wso_pp_context = array(
 $wso_pp_wrapper_attributes = (string) get_block_wrapper_attributes( array( 'class' => 'wso-pp' ) );
 $wso_pp_context_attribute  = (string) wp_interactivity_data_wp_context( $wso_pp_context );
 
-// Optional fragments, so the markup below contains no branches.
+// Optional fragments, so the markup below contains no branches. Inside data-wp-each the
+// item context shadows the block context: per-item directives read `context.item` only.
 $wso_pp_heading_markup = '' !== $wso_pp_heading
 	? '<h3 class="wso-pp__heading">' . esc_html( $wso_pp_heading ) . '</h3>'
 	: '';
@@ -114,8 +98,7 @@ $wso_pp_price_markup = $wso_pp_show_price
 	? '<span class="wso-pp__price" data-wp-text="context.item.priceText"></span>'
 	: '';
 
-// The conversion button lives in the toolbar rather than on each card: it flips the whole
-// block, and a per-card button would imply per-card state that does not exist.
+// A single button in the toolbar flips the whole block.
 $wso_pp_toggle_markup = $wso_pp_allow_convert
 	? '<button type="button" class="wso-pp__convert"'
 		. ' data-wp-on--click="actions.toggleCurrency"'

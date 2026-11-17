@@ -1,15 +1,8 @@
 <?php
 /**
- * Script metadata for assets/edit.js.
+ * Script metadata for edit.js.
  *
- * WordPress reads this file next to a block's editor script to learn its dependencies.
- * Without it the script is registered with an empty dependency list, so none of the
- * `wp.*` globals it uses are loaded first — `wp.blocks` is undefined, registration throws,
- * and although the block exists on the server it never reaches the client-side registry,
- * which is exactly what the inserter reads. The symptom is not an error message; the block
- * simply is not in the list.
- *
- * Hand-written because the plugin has no build step. A bundler would generate it.
+ * The `wp.*` dependencies must be listed here, or the script loads before them.
  *
  * @package WSO\PopularProducts
  */

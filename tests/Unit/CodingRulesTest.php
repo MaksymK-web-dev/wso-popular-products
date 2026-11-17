@@ -74,9 +74,6 @@ final class CodingRulesTest extends TestCase {
 	/**
 	 * The ABSPATH guard is the one legitimate `exit`.
 	 *
-	 * It is removed before any rule is applied, so the rules describe the rest of the file
-	 * rather than forcing every entry point to look the same.
-	 *
 	 * @param string $source File contents.
 	 * @return string Contents with the guard stripped.
 	 */

@@ -1,18 +1,8 @@
 /**
  * Front-end behaviour.
  *
- * Loaded by block.json as a script module, so it can import the Interactivity API.
- * The block's markup is server-rendered once; everything after that — the first load and
- * every refresh — goes through the REST endpoint and patches the existing DOM. No page
- * reload, no full block re-render.
- *
- * State lives in the block's context, not in the store. A store is page-global: two
- * instances of this block sharing `state.products` meant pressing Refresh in one updated
- * both. Context is per element instance, which is what the UI implies.
- *
- * Currency conversion is derived, not stored: each product keeps its own numeric price, and
- * `priceText` is recomputed from it whenever the products arrive or the toggle flips. That
- * avoids a second source of truth for "which number is on screen".
+ * State lives in the block context, not in the store: a store is page-global, so two
+ * instances would share one product list.
  */
 
 import { store, getContext } from '@wordpress/interactivity';
@@ -20,8 +10,7 @@ import { store, getContext } from '@wordpress/interactivity';
 /**
  * Builds the products request URL from the endpoint the server passed in the context.
  *
- * Handles both permalink styles: `rest_url()` returns a pretty path on some sites and
- * `?rest_route=` on others, and `URL.searchParams` appends correctly to either.
+ * Handles both permalink styles: a pretty path or `?rest_route=`.
  *
  * @param {Object} context Block context.
  * @return {URL} Request URL.
@@ -89,8 +78,7 @@ const priceTextFor = ( product, context ) => {
 /**
  * Rewrites `priceText` on every product for the current toggle state.
  *
- * Products are replaced rather than mutated so the Interactivity API sees a new reference
- * and re-renders the list.
+ * Products are replaced, not mutated, so the API sees a new reference.
  *
  * @param {Object} context Block context.
  */
@@ -140,8 +128,7 @@ const syncDerived = ( context ) => {
 /**
  * Fetches the conversion rate for this block, if the toggle is enabled.
  *
- * A failure here is not an error for the block: prices simply stay in the store currency
- * and the button stays disabled.
+ * A missing rate only disables the button.
  *
  * @param {Object} context Block context.
  * @return {Promise<void>} Resolves when the rate state is settled.
@@ -215,9 +202,7 @@ const { actions } = store( 'wso/popular-products', {
 		/**
 		 * Runs on mount: fetch the rate (when enabled) and the product list.
 		 *
-		 * The rate is awaited first so the first paint already has the right prices if the
-		 * toggle is on by default; the two requests are independent and could race, but
-		 * ordering them keeps the DOM from flashing a store-currency price.
+		 * The rate is awaited first so the first paint already has the right prices.
 		 *
 		 * @return {Generator} Action generator.
 		 */

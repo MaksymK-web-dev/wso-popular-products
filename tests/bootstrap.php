@@ -2,9 +2,6 @@
 /**
  * PHPUnit bootstrap.
  *
- * The tests cover block metadata and the plugin's file layout — the parts that fail
- * silently at runtime. No WordPress install is loaded, so the suite runs anywhere.
- *
  * @package WSO\PopularProducts
  */
 
