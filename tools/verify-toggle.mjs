@@ -97,59 +97,67 @@ const waitFor = async ( expression, timeoutMs = 15000 ) => {
 	throw new Error( `timed out waiting for: ${ expression }` );
 };
 
-await waitFor( `!!document.querySelector( '.wso-pp__convert' )` );
+await waitFor( `!!document.querySelector( '.wso-pp__currency select' )` );
 
 // Wait for a loaded state: the shell exists after the first paint, before the data arrives.
 await waitFor(
 	`(() => {
-		const button = document.querySelector( '.wso-pp__convert' );
+		const select = document.querySelector( '.wso-pp__currency select' );
 		const price = document.querySelector( '.wso-pp__price' );
-		return !!button && !button.disabled && button.textContent.trim().length > 0 &&
+		return !!select && !select.disabled &&
 			!!price && price.textContent.trim().length > 0;
 	})()`
 );
 
-const before = await evaluate(
+const pricesNow = () =>
+	evaluate(
+		socket,
+		`Array.from( document.querySelectorAll( '.wso-pp__price' ) ).map( ( n ) => n.textContent.trim() )`,
+		nextId,
+		pending
+	);
+
+const selectedNow = () =>
+	evaluate( socket, `document.querySelector( '.wso-pp__currency select' ).value`, nextId, pending );
+
+/**
+ * Picks a currency in the selector and lets the change event settle.
+ *
+ * @param {string} code ISO code.
+ */
+const choose = async ( code ) => {
+	await evaluate(
+		socket,
+		`(() => {
+			const select = document.querySelector( '.wso-pp__currency select' );
+			select.value = ${ JSON.stringify( code ) };
+			select.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+		})()`,
+		nextId,
+		pending
+	);
+	await new Promise( ( resolve ) => setTimeout( resolve, 600 ) );
+};
+
+const options = await evaluate(
 	socket,
-	`Array.from( document.querySelectorAll( '.wso-pp__price' ) ).map( ( n ) => n.textContent.trim() )`,
+	`Array.from( document.querySelector( '.wso-pp__currency select' ).options ).map( ( o ) => o.value )`,
 	nextId,
 	pending
 );
+const base = options[ 0 ];
+const targetCode = options.find( ( code ) => 'USD' === code ) || options[ 1 ];
 
-const labelBefore = await evaluate(
-	socket,
-	`document.querySelector( '.wso-pp__convert' ).textContent.trim()`,
-	nextId,
-	pending
-);
+const before = await pricesNow();
+const selectedBefore = await selectedNow();
 
-await evaluate( socket, `document.querySelector( '.wso-pp__convert' ).click()`, nextId, pending );
-await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
+await choose( targetCode );
+const after = await pricesNow();
+const selectedAfter = await selectedNow();
 
-const after = await evaluate(
-	socket,
-	`Array.from( document.querySelectorAll( '.wso-pp__price' ) ).map( ( n ) => n.textContent.trim() )`,
-	nextId,
-	pending
-);
-
-const labelAfter = await evaluate(
-	socket,
-	`document.querySelector( '.wso-pp__convert' ).textContent.trim()`,
-	nextId,
-	pending
-);
-
-// --- click again: it must come back ---
-await evaluate( socket, `document.querySelector( '.wso-pp__convert' ).click()`, nextId, pending );
-await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
-
-const back = await evaluate(
-	socket,
-	`Array.from( document.querySelectorAll( '.wso-pp__price' ) ).map( ( n ) => n.textContent.trim() )`,
-	nextId,
-	pending
-);
+// --- back to the store currency: the original strings must return ---
+await choose( base );
+const back = await pricesNow();
 
 // --- rates block ---
 const rateRows = await evaluate(
@@ -159,22 +167,23 @@ const rateRows = await evaluate(
 	pending
 );
 
-console.log( 'label before :', labelBefore );
-console.log( 'prices before:', before.join( ' | ' ) );
-console.log( 'label after  :', labelAfter );
-console.log( 'prices after :', after.join( ' | ' ) );
-console.log( 'prices back  :', back.join( ' | ' ) );
-console.log( 'rate codes   :', rateRows.join( ', ' ) );
+console.log( 'selector      :', options.join( ', ' ) );
+console.log( 'prices before :', before.join( ' | ' ), '(selected ' + selectedBefore + ')' );
+console.log( 'prices ' + targetCode + '  :', after.join( ' | ' ), '(selected ' + selectedAfter + ')' );
+console.log( 'prices back   :', back.join( ' | ' ) );
+console.log( 'rate codes    :', rateRows.join( ', ' ) );
 
 const changed = before.every( ( value, index ) => value !== after[ index ] );
 const restored = before.every( ( value, index ) => value === back[ index ] );
-const convertedLooksUsd = after.every( ( value ) => /US\$|\$|\u0024/.test( value ) );
+const selectedMoved = selectedBefore !== selectedAfter && selectedAfter === targetCode;
+const convertedLooksUsd = 'USD' !== targetCode || after.every( ( value ) => /US\$|\$|\u0024/.test( value ) );
 
 console.log();
-console.log( changed ? 'OK   prices changed on click' : 'FAIL prices did not change' );
-console.log( restored ? 'OK   prices came back on second click' : 'FAIL prices did not come back' );
-console.log( convertedLooksUsd ? 'OK   converted prices look like USD' : 'FAIL converted prices are not USD' );
+console.log( changed ? 'OK   prices changed with the selector' : 'FAIL prices did not change' );
+console.log( restored ? 'OK   prices came back with the store currency' : 'FAIL prices did not come back' );
+console.log( selectedMoved ? 'OK   the selector reports the chosen currency' : 'FAIL selector state drifted' );
+console.log( convertedLooksUsd ? 'OK   converted prices look like the target currency' : 'FAIL converted prices are wrong' );
 console.log( rateRows.length > 0 ? 'OK   rates block rendered rows' : 'FAIL rates block empty' );
 
 socket.close();
-process.exit( changed && restored && convertedLooksUsd && rateRows.length > 0 ? 0 : 1 );
+process.exit( changed && restored && selectedMoved && convertedLooksUsd && rateRows.length > 0 ? 0 : 1 );

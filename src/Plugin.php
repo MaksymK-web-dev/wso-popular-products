@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace WSO\PopularProducts;
 
+use WSO\PopularProducts\Admin\SettingsPage;
 use WSO\PopularProducts\Block\BlockRegistrar;
 use WSO\PopularProducts\Rates\RateProvider;
 use WSO\PopularProducts\Rates\RatesController;
@@ -53,6 +54,10 @@ final class Plugin {
 		( new BlockRegistrar( WSO_PP_DIR ) )->register();
 		( new ProductsController() )->register();
 		( new RatesController( new RateProvider() ) )->register();
+
+		if ( is_admin() ) {
+			( new SettingsPage() )->register();
+		}
 	}
 
 	/**

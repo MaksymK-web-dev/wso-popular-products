@@ -31,20 +31,37 @@ $wso_pp_limit = isset( $attributes['limit'] ) && is_numeric( $attributes['limit'
 $wso_pp_show_price = ! isset( $attributes['showPrice'] ) || (bool) $attributes['showPrice'];
 $wso_pp_show_image = ! isset( $attributes['showImage'] ) || (bool) $attributes['showImage'];
 
-// The conversion toggle is meaningless without a price, so it is gated on showPrice.
+// Three gates have to agree: a visible price, this block's own opt-in, and the
+// site-wide switch under WooCommerce → Popular Products.
 $wso_pp_allow_convert = $wso_pp_show_price
-	&& ( isset( $attributes['showCurrencyToggle'] ) && (bool) $attributes['showCurrencyToggle'] );
-
-$wso_pp_convert_to = isset( $attributes['convertTo'] ) && is_scalar( $attributes['convertTo'] )
-	? \WSO\PopularProducts\Rates\RateProvider::normalizeCode( (string) $attributes['convertTo'] )
-	: '';
-
-if ( ! in_array( $wso_pp_convert_to, \WSO\PopularProducts\Rates\RateProvider::COMMON_CODES, true ) ) {
-	$wso_pp_allow_convert = false;
-	$wso_pp_convert_to    = '';
-}
+	&& ( isset( $attributes['showCurrencyToggle'] ) && (bool) $attributes['showCurrencyToggle'] )
+	&& \WSO\PopularProducts\Config\Settings::currencyEnabled();
 
 // Derived values.
+
+$wso_pp_base = function_exists( 'get_woocommerce_currency' )
+	? strtoupper( (string) get_woocommerce_currency() )
+	: 'UAH';
+
+$wso_pp_codes = $wso_pp_allow_convert ? \WSO\PopularProducts\Config\Settings::currencies() : array();
+
+$wso_pp_options = array(
+	array(
+		'code'  => $wso_pp_base,
+		'label' => $wso_pp_base,
+	),
+);
+
+foreach ( $wso_pp_codes as $wso_pp_code ) {
+	if ( $wso_pp_code === $wso_pp_base ) {
+		continue;
+	}
+
+	$wso_pp_options[] = array(
+		'code'  => $wso_pp_code,
+		'label' => $wso_pp_code,
+	);
+}
 
 $wso_pp_context = array(
 	'endpoint'      => esc_url_raw( rest_url( 'wso-popular-products/v1/products' ) ),
@@ -53,11 +70,13 @@ $wso_pp_context = array(
 	'showPrice'     => $wso_pp_show_price,
 	'showImage'     => $wso_pp_show_image,
 	'allowConvert'  => $wso_pp_allow_convert,
-	'convertTo'     => $wso_pp_convert_to,
-	'rate'          => 0,
+	// The shopper's choice starts at the store currency, so a first paint never
+	// shows a price in a currency the shop did not choose.
+	'baseCurrency'  => $wso_pp_base,
+	'selected'      => $wso_pp_base,
+	'convertCodes'  => implode( ',', array_map( 'strval', $wso_pp_codes ) ),
+	'rates'         => array(),
 	'rateAvailable' => false,
-	'showConverted' => false,
-	'toggleLabel'   => '',
 	'convertHint'   => '',
 	'products'      => array(),
 	'loading'       => false,
@@ -68,12 +87,7 @@ $wso_pp_context = array(
 	'hasError'      => false,
 	// Labels travel from PHP to keep the strings in the text domain.
 	'labels'        => array(
-		'toConverted'     => sprintf(
-			/* translators: %s: currency code, e.g. USD. */
-			esc_html__( 'Show in %s', 'wso-popular-products' ),
-			$wso_pp_convert_to
-		),
-		'toBase'          => esc_html__( 'Show in UAH', 'wso-popular-products' ),
+		'currency'        => esc_html__( 'Currency', 'wso-popular-products' ),
 		'converted'       => esc_html__( 'Converted at the NBU rate', 'wso-popular-products' ),
 		'rateUnavailable' => esc_html__( 'Exchange rate unavailable', 'wso-popular-products' ),
 	),
@@ -98,13 +112,26 @@ $wso_pp_price_markup = $wso_pp_show_price
 	? '<span class="wso-pp__price" data-wp-text="context.item.priceText"></span>'
 	: '';
 
-// A single button in the toolbar flips the whole block.
-$wso_pp_toggle_markup = $wso_pp_allow_convert
-	? '<button type="button" class="wso-pp__convert"'
-		. ' data-wp-on--click="actions.toggleCurrency"'
+// The shopper chooses; the server only decides whether the control exists at all and
+// which options it offers.
+$wso_pp_currency_options = '';
+
+foreach ( $wso_pp_options as $wso_pp_option ) {
+	$wso_pp_currency_options .= sprintf(
+		'<option value="%s">%s</option>',
+		esc_attr( (string) $wso_pp_option['code'] ),
+		esc_html( (string) $wso_pp_option['label'] )
+	);
+}
+
+$wso_pp_currency_markup = $wso_pp_allow_convert && count( $wso_pp_options ) > 1
+	? '<label class="wso-pp__currency">'
+		. '<span class="screen-reader-text">' . esc_html__( 'Currency', 'wso-popular-products' ) . '</span>'
+		. '<select data-wp-on--change="actions.selectCurrency"'
 		. ' data-wp-bind--disabled="!context.rateAvailable"'
-		. ' data-wp-bind--title="context.convertHint"'
-		. ' data-wp-text="context.toggleLabel"></button>'
+		. ' data-wp-bind--title="context.convertHint">'
+		. $wso_pp_currency_options
+		. '</select></label>'
 	: '';
 
 $wso_pp_refresh_label = esc_html__( 'Refresh', 'wso-popular-products' );
@@ -128,7 +155,7 @@ $wso_pp_empty_label   = esc_html__( 'No products found.', 'wso-popular-products'
 			<?php echo $wso_pp_refresh_label; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
 		</button>
 		<span class="wso-pp__status" data-wp-text="context.statusText"></span>
-		<?php echo $wso_pp_toggle_markup; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static markup built above. ?>
+		<?php echo $wso_pp_currency_markup; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static markup built above. ?>
 	</div>
 
 	<ul class="wso-pp__list" data-wp-class--is-loading="context.loading">

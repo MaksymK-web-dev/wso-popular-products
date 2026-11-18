@@ -42,6 +42,27 @@
 	cursor: progress;
 }
 
+.wso-pp__currency {
+	margin-inline-start: auto;
+	display: inline-flex;
+	align-items: center;
+}
+
+.wso-pp__currency select {
+	font: inherit;
+	color: inherit;
+	background: transparent;
+	border: 1px solid var(--wso-pp-border);
+	border-radius: 999px;
+	padding: 0.2rem 0.6rem;
+	cursor: pointer;
+}
+
+.wso-pp__currency select:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
 .wso-pp__list {
 	list-style: none;
 	margin: 0;

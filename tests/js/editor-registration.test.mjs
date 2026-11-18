@@ -7,9 +7,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createContext, runInContext } from 'node:vm';
+import { runInContext } from 'node:vm';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { makeBrowserContext } from './wp-stubs.mjs';
 
 const here = dirname( fileURLToPath( import.meta.url ) );
 const pluginRoot = join( here, '..', '..' );
@@ -27,7 +29,6 @@ const BLOCKS = [
 			showPrice: true,
 			showImage: true,
 			showCurrencyToggle: false,
-			convertTo: 'USD',
 		},
 	},
 	{
@@ -42,62 +43,6 @@ const BLOCKS = [
 ];
 
 /**
- * Minimal stand-ins for the WordPress packages the editor script destructures at load.
- *
- * @return {Object} A `wp` global plus a record of what was registered.
- */
-const makeGlobals = () => {
-	const registered = [];
-
-	const component = ( name ) => {
-		const Stub = ( props ) => props?.children ?? null;
-		Stub.displayName = name;
-		return Stub;
-	};
-
-	const wp = {
-		blocks: {
-			registerBlockType: ( name, settings ) => registered.push( { name, settings } ),
-		},
-		element: {
-			createElement: ( type, props, ...children ) => ( { type, props, children } ),
-			Fragment: 'Fragment',
-			// Runs the effect immediately: its body is where the fetch lives.
-			useEffect: ( callback ) => {
-				const cleanup = callback();
-				if ( typeof cleanup === 'function' ) {
-					cleanup();
-				}
-			},
-			useState: ( initial ) => [ initial, () => {} ],
-		},
-		blockEditor: {
-			InspectorControls: component( 'InspectorControls' ),
-			useBlockProps: ( extra = {} ) => ( { className: extra.className ?? '' } ),
-		},
-		components: {
-			PanelBody: component( 'PanelBody' ),
-			RangeControl: component( 'RangeControl' ),
-			TextControl: component( 'TextControl' ),
-			ToggleControl: component( 'ToggleControl' ),
-			SelectControl: component( 'SelectControl' ),
-			Spinner: component( 'Spinner' ),
-			Notice: component( 'Notice' ),
-		},
-		i18n: {
-			__: ( text ) => text,
-		},
-		// Like the real package: a callable with helpers attached, not an object.
-		apiFetch: Object.assign( ( options ) => Promise.resolve( [] ), {
-			createNonceMiddleware: () => () => {},
-			use: () => {},
-		} ),
-	};
-
-	return { wp, registered };
-};
-
-/**
  * Executes one block's edit.js against the stubs.
  *
  * @param {string} dir Block directory name.
@@ -105,8 +50,7 @@ const makeGlobals = () => {
  */
 const runEditorScript = ( dir ) => {
 	const source = readFileSync( join( pluginRoot, 'blocks', dir, 'edit.js' ), 'utf8' );
-	const { wp, registered } = makeGlobals();
-	const context = createContext( { wp, window: { location: { href: 'https://example.test/' } }, console } );
+	const { context, registered } = makeBrowserContext();
 
 	runInContext( source, context, { filename: `${ dir }/edit.js` } );
 

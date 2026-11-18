@@ -89,4 +89,4 @@ jobs:
       # Catches the failure that has no message: a script enqueued without its
       # dependencies throws on `wp.blocks`, and the block vanishes from the inserter.
       - name: Editor registration
-        run: node --test tests/js/editor-registration.test.mjs
+        run: node --test tests/js/*.test.mjs

@@ -2,7 +2,7 @@
  * Front-end behaviour.
  *
  * State lives in the block context, not in the store: a store is page-global, so two
- * instances would share one product list.
+ * instances would share one product list — and one selected currency.
  */
 
 import { store, getContext } from '@wordpress/interactivity';
@@ -23,20 +23,23 @@ const buildProductsUrl = ( context ) => {
 };
 
 /**
- * Builds the rates request URL for the single currency this block converts to.
+ * Builds the rates request: every currency this block offers, in one call.
  *
  * @param {Object} context Block context.
  * @return {URL} Request URL.
  */
 const buildRatesUrl = ( context ) => {
 	const url = new URL( context.ratesEndpoint, window.location.href );
-	url.searchParams.set( 'codes', context.convertTo );
+
+	if ( context.convertCodes ) {
+		url.searchParams.set( 'codes', context.convertCodes );
+	}
 
 	return url;
 };
 
 /**
- * Formats a converted amount in the target currency.
+ * Formats an amount in the given currency.
  *
  * @param {number} amount Amount in the target currency.
  * @param {string} code   ISO currency code.
@@ -55,28 +58,34 @@ const formatConverted = ( amount, code ) => {
 };
 
 /**
- * Chooses the price string for one product, given the current toggle state.
+ * Chooses the price string for one product in the selected currency.
+ *
+ * Falls back to the store price whenever the rate for the chosen currency is missing:
+ * a wrong number is worse than an unconverted one.
  *
  * @param {Object} product Product row.
  * @param {Object} context Block context.
  * @return {string} Price text.
  */
 const priceTextFor = ( product, context ) => {
-	if ( ! context.showConverted || ! context.rateAvailable ) {
+	const code = context.selected;
+
+	if ( ! context.allowConvert || ! code || code === context.baseCurrency ) {
 		return product.price;
 	}
 
+	const rate = Number( context.rates ? context.rates[ code ] : 0 );
 	const value = Number( product.priceValue );
 
-	if ( ! Number.isFinite( value ) || value <= 0 ) {
+	if ( ! Number.isFinite( rate ) || rate <= 0 || ! Number.isFinite( value ) || value <= 0 ) {
 		return product.price;
 	}
 
-	return formatConverted( value / context.rate, context.convertTo );
+	return formatConverted( value / rate, code );
 };
 
 /**
- * Rewrites `priceText` on every product for the current toggle state.
+ * Rewrites `priceText` on every product for the selected currency.
  *
  * Products are replaced, not mutated, so the API sees a new reference.
  *
@@ -115,10 +124,6 @@ const syncDerived = ( context ) => {
 	context.hasError = '' !== context.error;
 
 	if ( context.allowConvert ) {
-		context.toggleLabel = context.showConverted
-			? context.labels.toBase
-			: context.labels.toConverted;
-
 		context.convertHint = context.rateAvailable
 			? context.labels.converted
 			: context.labels.rateUnavailable;
@@ -126,15 +131,15 @@ const syncDerived = ( context ) => {
 };
 
 /**
- * Fetches the conversion rate for this block, if the toggle is enabled.
+ * Fetches every offered rate at once and stores them by code.
  *
- * A missing rate only disables the button.
+ * A missing rate only disables the selector.
  *
  * @param {Object} context Block context.
  * @return {Promise<void>} Resolves when the rate state is settled.
  */
-const loadRate = async ( context ) => {
-	if ( ! context.allowConvert || '' === context.convertTo ) {
+const loadRates = async ( context ) => {
+	if ( ! context.allowConvert || ! context.convertCodes ) {
 		return;
 	}
 
@@ -148,13 +153,18 @@ const loadRate = async ( context ) => {
 		}
 
 		const payload = await response.json();
-		const entry = payload && payload.rates ? payload.rates[ context.convertTo ] : null;
-		const rate = entry ? Number( entry.rate ) : 0;
+		const rates = {};
 
-		if ( Number.isFinite( rate ) && rate > 0 ) {
-			context.rate = rate;
-			context.rateAvailable = true;
+		for ( const [ code, entry ] of Object.entries( payload?.rates ?? {} ) ) {
+			const rate = Number( entry?.rate );
+
+			if ( Number.isFinite( rate ) && rate > 0 ) {
+				rates[ code ] = rate;
+			}
 		}
+
+		context.rates = rates;
+		context.rateAvailable = Object.keys( rates ).length > 0;
 	} catch ( error ) {
 		// Intentionally silent: no rate means no conversion, which is a valid state.
 	}
@@ -200,16 +210,16 @@ const loadProducts = async ( context ) => {
 const { actions } = store( 'wso/popular-products', {
 	actions: {
 		/**
-		 * Runs on mount: fetch the rate (when enabled) and the product list.
+		 * Runs on mount: fetch the rates (when enabled) and the product list.
 		 *
-		 * The rate is awaited first so the first paint already has the right prices.
+		 * Rates are awaited first so the first paint already allows a conversion.
 		 *
 		 * @return {Generator} Action generator.
 		 */
 		*load() {
 			const context = getContext();
 
-			yield loadRate( context );
+			yield loadRates( context );
 			yield loadProducts( context );
 		},
 
@@ -222,21 +232,24 @@ const { actions } = store( 'wso/popular-products', {
 			const context = getContext();
 			context.products = [];
 			context.loaded = false;
-			yield loadRate( context );
+			yield loadRates( context );
 			yield loadProducts( context );
 		},
 
 		/**
-		 * Flips between the store currency and the converted one.
+		 * Applies the currency the shopper picked in the selector.
+		 *
+		 * @param {Event} event Change event from the `<select>`.
 		 */
-		toggleCurrency() {
+		selectCurrency( event ) {
 			const context = getContext();
+			const code = event?.target?.value ?? '';
 
-			if ( ! context.allowConvert || ! context.rateAvailable ) {
+			if ( ! context.allowConvert || '' === code ) {
 				return;
 			}
 
-			context.showConverted = ! context.showConverted;
+			context.selected = code;
 			applyPrices( context );
 			syncDerived( context );
 		},

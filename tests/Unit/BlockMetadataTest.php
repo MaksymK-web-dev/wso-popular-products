@@ -176,4 +176,19 @@ final class BlockMetadataTest extends TestCase {
 			self::assertDirectoryExists( self::root() . '/' . $relative );
 		}
 	}
+
+	/**
+	 * The shopper picks the currency, so the block must not carry a fixed target.
+	 *
+	 * A `convertTo` attribute would pin every instance to one currency and take the
+	 * choice away from the person buying.
+	 */
+	public function testCurrencyChoiceIsNotPinnedByAnAttribute(): void {
+		$meta       = self::meta( 'blocks/popular-products' );
+		$attributes = (array) ( $meta['attributes'] ?? array() );
+
+		self::assertArrayHasKey( 'showCurrencyToggle', $attributes, 'the per-block opt-in is missing' );
+		self::assertFalse( $attributes['showCurrencyToggle']['default'] ?? true, 'the switch must be off until an editor turns it on' );
+		self::assertArrayNotHasKey( 'convertTo', $attributes, 'the target currency is the shopper\'s choice, not an attribute' );
+	}
 }
