@@ -6,6 +6,36 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-11-18
+
+### Added
+
+- **The shopper picks the currency, not the editor.** The toolbar button is replaced by a
+  selector listing the store currency plus USD, EUR and PLN; the block remembers no target
+  of its own, so `convertTo` is gone from `block.json`.
+- **Site-wide switch** under *WooCommerce → Popular Products*. Clearing it removes the
+  selector from every block on the next request, without editing a post. A block shows the
+  selector only when the price is visible, the block opts in, and the site-wide switch is on.
+- `Config\Settings`: the `wso_popular_products` option, with unknown keys dropped.
+- A scope test that loads every `edit.js` into one global context, in both load orders, and
+  asserts no editor script leaks a binding into that scope.
+
+### Changed
+
+- All rates for a block are fetched in one request (`codes=USD,EUR,PLN`) instead of one
+  request per conversion.
+- `tools/verify-toggle.mjs` drives the selector instead of the removed button.
+
+### Fixed
+
+- **The editor could not preview one of the two blocks.** `edit.js` files are classic
+  scripts, so both ran in one global scope; each declared `const registerBlockType`,
+  `const Preview` and friends at the top level, and the second file to load failed to parse
+  with `SyntaxError: Identifier 'registerBlockType' has already been declared`. Only one
+  block registered, and the editor showed *this block has encountered an error and cannot
+  be previewed*. Both files are now IIFEs.
+- `SettingsPage` printed the AI key summary under the bot token field.
+
 ## [1.1.0] — 2026-11-17
 
 ### Added

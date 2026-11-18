@@ -9,12 +9,14 @@ Two Gutenberg blocks for a WooCommerce storefront, both registered from `block.j
 on the Interactivity API, and shipped with no build step:
 
 - **Popular Products** — the store's best-selling products, fetched in the browser and
-  rendered into existing markup. Optionally lets a shopper switch every price to USD, EUR
-  or PLN at the official NBU rate.
+  rendered into existing markup. Optionally lets the shopper pick the currency themselves —
+  the store currency, USD, EUR or PLN at the official NBU rate.
 - **NBU Exchange Rates** — today's hryvnia rates from the National Bank of Ukraine, pulled
   from an external API through a cached server-side proxy.
 
-![The currency block and converted prices on the front end](docs/screenshots/currency.png)
+![Both blocks in the editor: live preview, and the inspector controls for the products block](docs/screenshots/editor.png)
+
+![Both blocks on the front end, with USD chosen in the currency selector](docs/screenshots/currency.png)
 
 ## How it works
 
@@ -110,14 +112,19 @@ usable straight from the clone.
 
 ## Configuration
 
-**Popular Products** exposes six attributes in the inspector:
+**Popular Products** exposes five attributes in the inspector:
 
 - **Heading** — text above the list; leave empty to hide it.
 - **Number of products** — 1–12, default 3.
 - **Show price** — default on.
 - **Show image** — default on.
-- **Let shoppers show prices in another currency** — adds a toggle button; default off.
-- **Convert to** — USD, EUR or PLN; only shown when the toggle is enabled.
+- **Let shoppers choose the currency** — adds a currency selector; default off.
+
+The currency the shopper can pick is **their** choice, not the editor's: the selector lists
+the store currency plus USD, EUR and PLN, and the site-wide switches live under
+**WooCommerce → Popular Products**. A block ships three gates — a visible price, this
+per-block opt-in, and the site-wide switch — and the selector appears only when all three
+agree.
 
 **NBU Exchange Rates** exposes three:
 
@@ -225,26 +232,34 @@ Verified on WordPress 7.1.4 + WooCommerce 11.3.0 + PHP 8.4, theme Twenty Twenty-
 - both blocks register with a render callback and a view module (`WP_Block_Type_Registry`);
 - the rendered page loads `view.js` as a module and emits the `@wordpress/interactivity`
   import map entry;
-- 24 PHP tests and 12 JS tests pass, plus phpcs with WordPress standards;
+- 31 PHP tests and 16 JS tests pass, plus phpcs with WordPress standards;
 - metadata tests run per block, driven by the same list `BlockRegistrar` registers — a
-  block that exists on disk but is not registered cannot pass unnoticed.
+  block that exists on disk but is not registered cannot pass unnoticed;
+- a scope test loads both `edit.js` files into one global context in either order. It
+  fails on the shape that shipped before: the second script died with
+  `SyntaxError: Identifier 'registerBlockType' has already been declared` and only one
+  block registered, which is what the editor showed as *this block has encountered an
+  error*.
 
 **Behaviour, proven rather than assumed**
 
 - **Data is fetched client-side**: the server HTML contains no product names; the DOM after
   the module runs contains all three products. Same for rates.
-- **The currency toggle works**: `tools/verify-toggle.mjs` drives headless Chrome over CDP,
-  clicks the button and reads the prices.
+- **The currency selector works**: `tools/verify-toggle.mjs` drives headless Chrome over CDP,
+  picks a currency and reads the prices back.
 
   ```
-  label before : Show in USD
-  prices before: 22,00 ₴ | 69,00 ₴ | 499,00 ₴
-  label after  : Show in UAH
-  prices after : $0.49 | $1.52 | $11.00
-  prices back  : 22,00 ₴ | 69,00 ₴ | 499,00 ₴
+  selector      : UAH, USD, EUR, PLN
+  prices before : 22,00 ₴ | 69,00 ₴ | 499,00 ₴   (selected UAH)
+  prices USD    : $0.49 | $1.53 | $11.04          (selected USD)
+  prices back   : 22,00 ₴ | 69,00 ₴ | 499,00 ₴
   ```
 
-  The arithmetic checks out: 22 / 45.3436 = 0.485 → $0.49.
+  The arithmetic checks out: 22 / 45.202 = 0.4867 → $0.49.
+- **The site-wide switch wins**: with it cleared under *WooCommerce → Popular Products*,
+  every block loses its selector on the next request and prices come back in the store
+  currency — verified by saving the screen and reloading the page.
+- **A block without the opt-in shows no selector**, even when the site-wide switch is on.
 - **Ordering tie-break**: with every product at zero sales, the newest appears first; with
   sales temporarily set on the oldest product, it still comes first.
 - **Two instances stay independent**: a page with `limit 2` and `limit 4` reports
